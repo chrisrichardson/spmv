@@ -1,6 +1,7 @@
 // Copyright (C) 2018 Chris Richardson (chris@bpi.cam.ac.uk)
 // SPDX-License-Identifier:    LGPL-3.0-or-later
 
+#include <iostream>
 #include <cmath>
 #include <mpi.h>
 #include <set>
