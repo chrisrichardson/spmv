@@ -14,8 +14,7 @@ class DistributedVector
 {
 public:
   DistributedVector(MPI_Comm comm,
-                    const Eigen::SparseMatrix<double, Eigen::RowMajor>& A,
-                    std::vector<index_type>& ranges);
+                    const Eigen::SparseMatrix<double, Eigen::RowMajor>& A);
 
   // Local "dense" portion of sparse vector
   Eigen::Map<Eigen::VectorXd> vec();
@@ -49,7 +48,4 @@ private:
   // Address and size of "local" entries in sparse vector
   index_type _i0;
   index_type _local_size;
-
-  // MPI rank
-  int rank;
 };

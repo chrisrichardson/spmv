@@ -84,7 +84,7 @@ int main(int argc, char** argv)
 
   // Make distributed vector - this is the only
   // one that needs to be 'sparse'
-  DistributedVector psp(MPI_COMM_WORLD, A, ranges);
+  DistributedVector psp(MPI_COMM_WORLD, A);
   auto p = psp.vec();
 
   // Set up values
@@ -95,10 +95,9 @@ int main(int argc, char** argv)
   }
 
   // Apply matrix a few times
+
+  // Temporary variable
   Eigen::VectorXd q;
-
-  std::stringstream s;
-
   for (int i = 0; i < 10; ++i)
   {
     psp.update(MPI_COMM_WORLD);
@@ -139,7 +138,8 @@ int main(int argc, char** argv)
   // }
 
   // Output
-  s << "[";
+  std::stringstream s;
+  s << rank << " [";
   for (unsigned int i = 0; i != M; ++i)
     s << p[i] << " ";
   s << "]";

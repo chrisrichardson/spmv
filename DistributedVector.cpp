@@ -5,19 +5,28 @@
 #include <iostream>
 
 DistributedVector::DistributedVector(
-    MPI_Comm comm, const Eigen::SparseMatrix<double, Eigen::RowMajor>& A,
-    std::vector<index_type>& ranges)
+    MPI_Comm comm, const Eigen::SparseMatrix<double, Eigen::RowMajor>& A)
 {
   int mpi_size;
   MPI_Comm_size(comm, &mpi_size);
-  MPI_Comm_rank(comm, &rank);
-  index_type r0 = ranges[rank];
-  index_type r1 = ranges[rank + 1];
+  int mpi_rank;
+  MPI_Comm_rank(comm, &mpi_rank);
+
+  // Get local range from number of rows in A
+  std::vector<int> nrows_all(mpi_size);
+  std::vector<index_type> ranges = {0};
+  int nrows = A.rows();
+  MPI_Allgather(&nrows, 1, MPI_INT, nrows_all.data(), 1, MPI_INT, comm);
+  for (int i = 0; i < mpi_size; ++i)
+    ranges.push_back(ranges.back() + nrows_all[i]);
+
+  index_type r0 = ranges[mpi_rank];
+  index_type r1 = ranges[mpi_rank + 1];
   index_type N = ranges.back();
   _local_size = r1 - r0;
-  assert(_local_size = A.rows());
+  assert(_local_size = nrows);
 
-  std::cout << "# local_size[" << rank << "] = " << _local_size << "/" << N
+  std::cout << "# local_size[" << mpi_rank << "] = " << _local_size << "/" << N
             << "\n";
   _xsp.resize(N);
 
@@ -64,8 +73,8 @@ DistributedVector::DistributedVector(
     _send_offset[i] = _send_offset[i - 1] + _send_count[i - 1];
 
   // No need to send data to self, but keep offsets in place for send
-  _recv_count[rank] = 0;
-  _send_count[rank] = 0;
+  _recv_count[mpi_rank] = 0;
+  _send_count[mpi_rank] = 0;
 
   _recv_offset = {0};
   for (int c : _recv_count)
