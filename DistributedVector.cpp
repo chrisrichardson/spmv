@@ -58,6 +58,7 @@ DistributedVector::DistributedVector(
   // needs" - and send indices to each process
 
   // Calculate NNZ in each range
+  // FIXME - calculate _send_count directly...
   _send_count.resize(mpi_size, 0);
   int r = 0;
   for (index_type* d = dptr; d != dptr_end; ++d)
@@ -67,8 +68,6 @@ DistributedVector::DistributedVector(
     ++_send_count[r];
   }
 
-  // FIXME: make all this even more confusing by using neighbor_comm
-  // collectives
   std::vector<int> neighbours;
   std::vector<int> send_count_neighbour;
   for (int i = 0; i < mpi_size; ++i)
@@ -129,7 +128,7 @@ Eigen::Map<Eigen::VectorXd> DistributedVector::vec()
 //-----------------------------------------------------------------------------
 Eigen::SparseVector<double>& DistributedVector::spvec() { return _xsp; }
 //-----------------------------------------------------------------------------
-void DistributedVector::update(MPI_Comm comm)
+void DistributedVector::update()
 {
   // Get data from global indices to send to other processes
   for (std::size_t i = 0; i < _indexbuf.size(); ++i)

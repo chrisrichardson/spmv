@@ -38,7 +38,7 @@ void cg(const Eigen::Ref<const Eigen::SparseMatrix<double, Eigen::RowMajor>>& A,
   for (int k = 0; k < 500; ++k)
   {
     // y = A.p
-    psp.update(MPI_COMM_WORLD);
+    psp.update();
     y = A * psp.spvec();
 
     // Update x and r
@@ -151,7 +151,7 @@ int main(int argc, char** argv)
   Eigen::VectorXd q;
   for (int i = 0; i < 10000; ++i)
   {
-    psp->update(MPI_COMM_WORLD);
+    psp->update();
     q = A * psp->spvec();
     p = q;
   }

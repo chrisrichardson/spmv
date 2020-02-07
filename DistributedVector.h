@@ -26,7 +26,7 @@ public:
   Eigen::SparseVector<double>& spvec();
 
   // Ghost update - should be done each time *before* matvec
-  void update(MPI_Comm comm);
+  void update();
 
 private:
   // Actual data
