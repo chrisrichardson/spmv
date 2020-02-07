@@ -2,8 +2,10 @@
 // SPDX-License-Identifier:    LGPL-3.0-or-later
 
 #include "DistributedVector.h"
+#include <algorithm>
 #include <iostream>
 
+//-----------------------------------------------------------------------------
 DistributedVector::DistributedVector(
     MPI_Comm comm, const Eigen::SparseMatrix<double, Eigen::RowMajor>& A)
 {
@@ -39,7 +41,10 @@ DistributedVector::DistributedVector(
   for (index_type i = r0; i != r1; ++i)
     _xsp.coeffRef(i) = 1.0;
 
-  // finished filling
+  // Set to zero without removing non-zeros (!)
+  _xsp *= 0;
+
+  // Finished filling
 
   index_type* dptr = _xsp.innerIndexPtr();
   index_type* dptr_end = dptr + _xsp.nonZeros();

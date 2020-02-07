@@ -19,7 +19,7 @@ public:
   // Local "dense" portion of sparse vector
   Eigen::Map<Eigen::VectorXd> vec();
 
-  // Eigen SparseVector
+  // Eigen SparseVector using global indexing
   Eigen::SparseVector<double>& spvec();
 
   // Set up communication pattern for A.x by querying columns of A for non-zeros
