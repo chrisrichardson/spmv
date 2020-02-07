@@ -22,12 +22,6 @@ public:
   // Eigen SparseVector using global indexing
   Eigen::SparseVector<double>& spvec();
 
-  // Set up communication pattern for A.x by querying columns of A for non-zeros
-  // and sending send-pattern to remotes
-  void setup(MPI_Comm comm,
-             const Eigen::SparseMatrix<double, Eigen::RowMajor>& A,
-             std::vector<index_type>& ranges);
-
   // Ghost update - should be done each time *before* matvec
   void update(MPI_Comm comm);
 
