@@ -38,7 +38,7 @@ DistributedVector::DistributedVector(
     _xsp.coeffRef(*ptr) = 1.0;
 
   // Insert all local rows/cols - (in case any got missed...?)
-  for (index_type i = r0; i != r1; ++i)
+  for (index_type i = r0; i < r1; ++i)
     _xsp.coeffRef(i) = 1.0;
 
   // Set to zero without removing non-zeros (!)
@@ -74,7 +74,7 @@ DistributedVector::DistributedVector(
                comm);
 
   _send_offset.resize(mpi_size, 0);
-  for (unsigned int i = 1; i != mpi_size; ++i)
+  for (int i = 1; i < mpi_size; ++i)
     _send_offset[i] = _send_offset[i - 1] + _send_count[i - 1];
 
   // No need to send data to self, but keep offsets in place for send
@@ -84,7 +84,7 @@ DistributedVector::DistributedVector(
   _recv_offset = {0};
   for (int c : _recv_count)
     _recv_offset.push_back(_recv_offset.back() + c);
-  unsigned int count = _recv_offset.back();
+  int count = _recv_offset.back();
 
   _indexbuf.resize(count);
   _send_data.resize(count);
@@ -93,6 +93,8 @@ DistributedVector::DistributedVector(
   int err = MPI_Alltoallv(
       _xsp.innerIndexPtr(), _send_count.data(), _send_offset.data(), MPI_INT,
       _indexbuf.data(), _recv_count.data(), _recv_offset.data(), MPI_INT, comm);
+  if (err != MPI_SUCCESS)
+    throw std::runtime_error("MPI failure");
 
   // Should be in own range
   for (index_type i : _indexbuf)
@@ -109,7 +111,7 @@ Eigen::SparseVector<double>& DistributedVector::spvec() { return _xsp; }
 void DistributedVector::update(MPI_Comm comm)
 {
   // Get data from global indices to send to other processes
-  for (index_type i = 0; i != _indexbuf.size(); ++i)
+  for (std::size_t i = 0; i < _indexbuf.size(); ++i)
     _send_data[i] = _xsp.coeffRef(_indexbuf[i]);
 
   // Send actual values - NB meaning of _send and _recv count/offset is reversed
@@ -117,5 +119,7 @@ void DistributedVector::update(MPI_Comm comm)
                           _recv_offset.data(), MPI_DOUBLE, _xsp.valuePtr(),
                           _send_count.data(), _send_offset.data(), MPI_DOUBLE,
                           comm);
+  if (err != MPI_SUCCESS)
+    throw std::runtime_error("MPI failure");
 }
 //-----------------------------------------------------------------------------

@@ -33,7 +33,7 @@ void cg(const Eigen::Ref<const Eigen::SparseMatrix<double, Eigen::RowMajor>>& A,
   MPI_Allreduce(&rnorm, &rnorm_sum1, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
   // Iterations of CG
-  for (unsigned int k = 0; k != 500; ++k)
+  for (int k = 0; k < 500; ++k)
   {
     // y = A.p
     psp.update(MPI_COMM_WORLD);
@@ -70,7 +70,7 @@ std::vector<index_type> owner_ranges(std::int64_t size, index_type N)
 
   // Compute local range
   std::vector<index_type> ranges;
-  for (int rank = 0; rank != (size + 1); ++rank)
+  for (int rank = 0; rank < (size + 1); ++rank)
   {
     if (rank < r)
       ranges.push_back(rank * (n + 1));
@@ -111,7 +111,7 @@ int main(int argc, char** argv)
   // Add entries on all local rows
   // Using [local_row, global_column] indexing
   double gamma = 0.1;
-  for (unsigned int i = 0; i < M; ++i)
+  for (int i = 0; i < M; ++i)
   {
     // Global column diagonal index
     int c0 = r0 + i;
@@ -135,7 +135,7 @@ int main(int argc, char** argv)
   auto p = psp.vec();
 
   // Set up values
-  for (unsigned int i = 0; i != M; ++i)
+  for (int i = 0; i < M; ++i)
   {
     double z = (double)(i + r0) / double(N);
     p[i] = exp(-10 * pow(5 * (z - 0.5), 2.0));
@@ -155,11 +155,11 @@ int main(int argc, char** argv)
   // Output
   std::stringstream s;
   s << rank << " [";
-  for (unsigned int i = 0; i != M; ++i)
+  for (int i = 0; i < M; ++i)
     s << p[i] << " ";
   s << "]";
 
-  for (unsigned int i = 0; i != size; ++i)
+  for (int i = 0; i < size; ++i)
   {
     if (i == rank)
       std::cout << s.str() << "\n";

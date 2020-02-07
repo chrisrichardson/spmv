@@ -13,6 +13,8 @@ project(${PROJECT_NAME})
 # Set CMake behavior
 cmake_policy(SET CMP0004 NEW)
 
+set(CMAKE_CXX_FLAGS "-g -O2 -Werror=all")
+
 find_package(MPI)
 
 find_package(Eigen3 REQUIRED)
