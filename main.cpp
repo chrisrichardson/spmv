@@ -66,16 +66,18 @@ int main(int argc, char** argv)
   double gamma = 0.1;
   for (unsigned int i = 0; i < M; ++i)
   {
+    // Global column diagonal index
+    int c0 = r0 + i;
     // Special case for very first and last global rows
-    if ((r0 + i) == 0)
-      A.insert(i, i) = 1.0;
-    else if ((r0 + i) == (N - 1))
-      A.insert(i, i) = 1.0;
+    if (c0 == 0)
+      A.insert(i, c0) = 1.0;
+    else if (c0 == (N - 1))
+      A.insert(i, c0) = 1.0;
     else
     {
-      A.insert(i, r0 + i - 1) = gamma;
-      A.insert(i, r0 + i) = 1.0 - 2.0 * gamma;
-      A.insert(i, r0 + i + 1) = gamma;
+      A.insert(i, c0 - 1) = gamma;
+      A.insert(i, c0) = 1.0 - 2.0 * gamma;
+      A.insert(i, c0 + 1) = gamma;
     }
   }
   A.makeCompressed();
