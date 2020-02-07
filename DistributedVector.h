@@ -35,8 +35,10 @@ private:
 
   // Indices, counts and offsets for communication
   std::vector<index_type> _indexbuf;
-  std::vector<index_type> _counts[2];
-  std::vector<index_type> _offsets[2];
+  std::vector<index_type> _send_count;
+  std::vector<index_type> _recv_count;
+  std::vector<index_type> _send_offset;
+  std::vector<index_type> _recv_offset;
 
   // Data buffer for sending to remotes
   std::vector<double> _send_data;

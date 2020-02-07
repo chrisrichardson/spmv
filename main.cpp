@@ -35,7 +35,6 @@ std::vector<index_type> owner_ranges(MPI_Comm comm, index_type N)
 }
 
 int main(int argc, char** argv)
-
 {
   MPI_Init(&argc, &argv);
 
@@ -119,7 +118,7 @@ int main(int argc, char** argv)
     double beta = r.squaredNorm() / rnorm;
     p *= beta;
     p += r;
-    std::cerr << k << ":" << rnorm << "\n";
+    //    std::cerr << k << ":" << rnorm << "\n";
   }
 
   // Output
