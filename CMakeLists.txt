@@ -19,7 +19,7 @@ find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR} ${MPI_INCLUDE_PATH})
 
 # Executable
-add_executable(${PROJECT_NAME} main.cpp)
+add_executable(${PROJECT_NAME} main.cpp DistributedVector.cpp)
 
 # Target libraries
 target_link_libraries(${PROJECT_NAME} ${MPI_LIBRARIES})
