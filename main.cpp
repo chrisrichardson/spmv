@@ -39,7 +39,7 @@ public:
     index_type N = ranges.back();
     _local_size = r1 - r0;
 
-    std::cout << "local_size[" << rank << "] = " << _local_size << "/" << N
+    std::cout << "# local_size[" << rank << "] = " << _local_size << "/" << N
               << "\n";
     _xsp.resize(N);
 
@@ -105,6 +105,7 @@ public:
     for (index_type i = 0; i != _indexbuf.size(); ++i)
       _send_data[i] = _xsp.coeffRef(_indexbuf[i]);
 
+    // Send actual values
     int err = MPI_Alltoallv(_send_data.data(), _counts[0].data(),
                             _offsets[0].data(), MPI_DOUBLE, _xsp.valuePtr(),
                             _counts[1].data(), _offsets[1].data(), MPI_DOUBLE,
@@ -155,6 +156,7 @@ std::vector<index_type> owner_ranges(MPI_Comm comm, index_type N)
 }
 
 int main(int argc, char** argv)
+
 {
   MPI_Init(&argc, &argv);
 
@@ -162,10 +164,11 @@ int main(int argc, char** argv)
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   int size;
   MPI_Comm_size(MPI_COMM_WORLD, &size);
-  std::cout << "rank = " << rank << "/" << size << "\n";
+
+  std::cout << "# rank = " << rank << "/" << size << "\n";
 
   // Make a square Matrix divided evenly across cores
-  int N = 100;
+  int N = 1000;
 
   std::vector<index_type> ranges = owner_ranges(MPI_COMM_WORLD, N);
 
@@ -173,7 +176,7 @@ int main(int argc, char** argv)
   index_type r1 = ranges[rank + 1];
   int M = r1 - r0;
 
-  std::cout << r0 << "-" << r1 << " \n";
+  std::cout << "# " << r0 << "-" << r1 << " \n";
 
   // Local part of the matrix
   // Must be RowMajor and compressed
@@ -182,41 +185,75 @@ int main(int argc, char** argv)
   // Set up A
   for (unsigned int i = 0; i < M; ++i)
   {
-    if (r0 + i > 1)
-      A.insert(i, r0 + i - 1) = -1.0;
-    A.insert(i, r0 + i) = 2.0;
-    if (r0 + i + 1 < N)
-      A.insert(i, r0 + i + 1) = -1.0;
+    if ((r0 + i) == 0)
+      A.insert(i, i) = 1.0;
+    else if ((r0 + i) == (N - 1))
+      A.insert(i, i) = 1.0;
+    else
+    {
+      A.insert(i, r0 + i - 1) = 1.0;
+      A.insert(i, r0 + i) = -2.0;
+      A.insert(i, r0 + i + 1) = 1.0;
+    }
   }
   A.makeCompressed();
 
-  DistributedVector xsp2;
-  xsp2.setup(MPI_COMM_WORLD, A, ranges);
+  // Make distributed vector - this is the only
+  // one that needs to be 'sparse'
+  DistributedVector psp;
+  psp.setup(MPI_COMM_WORLD, A, ranges);
+  auto p = psp.vec();
 
-  // Get reference to local dense vector
-  auto x = xsp2.vec();
+  // RHS vector
+  Eigen::VectorXd b(M);
 
-  // Set up initial values
+  // Set up values
   for (unsigned int i = 0; i != M; ++i)
   {
     double z = (double)(i + r0) / double(N);
-    x[i] = exp(-10 * pow(5 * (z - 0.5), 2.0));
+    b[i] = exp(-10 * pow(5 * (z - 0.5), 2.0));
   }
 
-  // Copy ghost values from remotes
-  xsp2.update(MPI_COMM_WORLD);
-
+  // Residual vector
+  Eigen::VectorXd r(M);
+  r = b;
+  // Assign to dense part of sparse vector
+  p = r;
   Eigen::VectorXd y(M);
+  Eigen::VectorXd x(M);
 
-  // Sparse matrix multiply
-  y = A * xsp2.spvec();
-  x = y;
+  // Iterations of CG
+  for (unsigned int k = 0; k != 500; ++k)
+  {
+    double rnorm = r.squaredNorm();
 
+    // y = A.p
+    psp.update(MPI_COMM_WORLD);
+    y = A * psp.spvec();
+
+    // Update x and r
+    double alpha = rnorm / p.dot(y);
+    x += alpha * p;
+    r -= alpha * y;
+
+    // Update p
+    double beta = r.squaredNorm() / rnorm;
+    p *= beta;
+    p += r;
+    std::cerr << k << ":" << rnorm << "\n";
+  }
+
+  // Output
   std::stringstream s;
-  s << "rank = " << rank << ": ";
   for (unsigned int i = 0; i != M; ++i)
-    s << x[i] << " ";
-  std::cout << s.str() << "\n";
+    s << x[i] << "\n";
+
+  for (unsigned int i = 0; i != size; ++i)
+  {
+    if (i == rank)
+      std::cout << s.str() << "\n";
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
 
   MPI_Finalize();
   return 0;
