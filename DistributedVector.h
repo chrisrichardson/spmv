@@ -1,9 +1,10 @@
 // Copyright (C) 2020 Chris Richardson (chris@bpi.cam.ac.uk)
 // SPDX-License-Identifier:    LGPL-3.0-or-later
 
-#include<Eigen/Sparse>
-#include<Eigen/Dense>
+#include <Eigen/Dense>
+#include <Eigen/Sparse>
 #include <mpi.h>
+#include <vector>
 
 #pragma once
 
@@ -12,7 +13,9 @@ typedef Eigen::SparseMatrix<double>::StorageIndex index_type;
 class DistributedVector
 {
 public:
-  DistributedVector();
+  DistributedVector(MPI_Comm comm,
+                    const Eigen::SparseMatrix<double, Eigen::RowMajor>& A,
+                    std::vector<index_type>& ranges);
 
   // Local "dense" portion of sparse vector
   Eigen::Map<Eigen::VectorXd> vec();

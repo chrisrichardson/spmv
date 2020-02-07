@@ -61,8 +61,11 @@ int main(int argc, char** argv)
   Eigen::SparseMatrix<double, Eigen::RowMajor> A(M, N);
 
   // Set up A
+  // Add entries on all local rows
+  // Using [local_row, global_column] indexing
   for (unsigned int i = 0; i < M; ++i)
   {
+    // Special case for very first and last global rows
     if ((r0 + i) == 0)
       A.insert(i, i) = 1.0;
     else if ((r0 + i) == (N - 1))
@@ -78,8 +81,7 @@ int main(int argc, char** argv)
 
   // Make distributed vector - this is the only
   // one that needs to be 'sparse'
-  DistributedVector psp;
-  psp.setup(MPI_COMM_WORLD, A, ranges);
+  DistributedVector psp(MPI_COMM_WORLD, A, ranges);
   auto p = psp.vec();
 
   // RHS vector
@@ -104,6 +106,7 @@ int main(int argc, char** argv)
   for (unsigned int k = 0; k != 500; ++k)
   {
     double rnorm = r.squaredNorm();
+    // FIXME: need to MPI_SUM
 
     // y = A.p
     psp.update(MPI_COMM_WORLD);
@@ -111,11 +114,13 @@ int main(int argc, char** argv)
 
     // Update x and r
     double alpha = rnorm / p.dot(y);
+    // FIXME: need to MPI_SUM
     x += alpha * p;
     r -= alpha * y;
 
     // Update p
     double beta = r.squaredNorm() / rnorm;
+    // FIXME: need to MPI_SUM
     p *= beta;
     p += r;
     //    std::cerr << k << ":" << rnorm << "\n";

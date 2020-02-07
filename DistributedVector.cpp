@@ -4,16 +4,7 @@
 #include "DistributedVector.h"
 #include <iostream>
 
-DistributedVector::DistributedVector() {}
-//-----------------------------------------------------------------------------
-Eigen::Map<Eigen::VectorXd> DistributedVector::vec()
-{
-  return Eigen::Map<Eigen::VectorXd>(_xsp.valuePtr() + _i0, _local_size);
-}
-//-----------------------------------------------------------------------------
-Eigen::SparseVector<double>& DistributedVector::spvec() { return _xsp; }
-//-----------------------------------------------------------------------------
-void DistributedVector::setup(
+DistributedVector::DistributedVector(
     MPI_Comm comm, const Eigen::SparseMatrix<double, Eigen::RowMajor>& A,
     std::vector<index_type>& ranges)
 {
@@ -87,6 +78,13 @@ void DistributedVector::setup(
       _xsp.innerIndexPtr(), _send_count.data(), _send_offset.data(), MPI_INT,
       _indexbuf.data(), _recv_count.data(), _recv_offset.data(), MPI_INT, comm);
 }
+//-----------------------------------------------------------------------------
+Eigen::Map<Eigen::VectorXd> DistributedVector::vec()
+{
+  return Eigen::Map<Eigen::VectorXd>(_xsp.valuePtr() + _i0, _local_size);
+}
+//-----------------------------------------------------------------------------
+Eigen::SparseVector<double>& DistributedVector::spvec() { return _xsp; }
 //-----------------------------------------------------------------------------
 void DistributedVector::update(MPI_Comm comm)
 {
