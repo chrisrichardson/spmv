@@ -67,19 +67,37 @@ DistributedVector::DistributedVector(
     ++_send_count[r];
   }
 
+  // FIXME: make all this even more confusing by using neighbor_comm
+  // collectives
+  std::vector<int> neighbours;
+  std::vector<int> send_count_neighbour;
+  for (int i = 0; i < mpi_size; ++i)
+    if (_send_count[i] > 0 and i != mpi_rank)
+    {
+      neighbours.push_back(i);
+      send_count_neighbour.push_back(_send_count[i]);
+    }
+  _send_count = send_count_neighbour;
+
+  const int neighbour_size = neighbours.size();
+
+  MPI_Dist_graph_create_adjacent(comm, neighbours.size(), neighbours.data(),
+                                 MPI_UNWEIGHTED, neighbours.size(),
+                                 neighbours.data(), MPI_UNWEIGHTED,
+                                 MPI_INFO_NULL, false, &_neighbour_comm);
+
   // Send NNZs by Alltoall - these will be the receive counts for incoming
   // index/values
-  _recv_count.resize(mpi_size);
-  MPI_Alltoall(_send_count.data(), 1, MPI_INT, _recv_count.data(), 1, MPI_INT,
-               comm);
+  _recv_count.resize(neighbour_size);
+  MPI_Neighbor_alltoall(_send_count.data(), 1, MPI_INT, _recv_count.data(), 1,
+                        MPI_INT, _neighbour_comm);
 
-  _send_offset.resize(mpi_size, 0);
-  for (int i = 1; i < mpi_size; ++i)
-    _send_offset[i] = _send_offset[i - 1] + _send_count[i - 1];
-
-  // No need to send data to self, but keep offsets in place for send
-  _recv_count[mpi_rank] = 0;
-  _send_count[mpi_rank] = 0;
+  _send_offset = {0};
+  for (int c : _send_count)
+    _send_offset.push_back(_send_offset.back() + c);
+  for (int i = 0; i < neighbour_size; ++i)
+    if (neighbours[i] > mpi_rank)
+      _send_offset[i] += _local_size;
 
   _recv_offset = {0};
   for (int c : _recv_count)
@@ -90,9 +108,10 @@ DistributedVector::DistributedVector(
   _send_data.resize(count);
 
   // Send global indices to remote processes that own them
-  int err = MPI_Alltoallv(
+  int err = MPI_Neighbor_alltoallv(
       _xsp.innerIndexPtr(), _send_count.data(), _send_offset.data(), MPI_INT,
-      _indexbuf.data(), _recv_count.data(), _recv_offset.data(), MPI_INT, comm);
+      _indexbuf.data(), _recv_count.data(), _recv_offset.data(), MPI_INT,
+      _neighbour_comm);
   if (err != MPI_SUCCESS)
     throw std::runtime_error("MPI failure");
 
@@ -100,6 +119,8 @@ DistributedVector::DistributedVector(
   for (index_type i : _indexbuf)
     assert(i >= r0 and i < r1);
 }
+//-----------------------------------------------------------------------------
+DistributedVector::~DistributedVector() { MPI_Comm_free(&_neighbour_comm); }
 //-----------------------------------------------------------------------------
 Eigen::Map<Eigen::VectorXd> DistributedVector::vec()
 {
@@ -115,10 +136,10 @@ void DistributedVector::update(MPI_Comm comm)
     _send_data[i] = _xsp.coeffRef(_indexbuf[i]);
 
   // Send actual values - NB meaning of _send and _recv count/offset is reversed
-  int err = MPI_Alltoallv(_send_data.data(), _recv_count.data(),
-                          _recv_offset.data(), MPI_DOUBLE, _xsp.valuePtr(),
-                          _send_count.data(), _send_offset.data(), MPI_DOUBLE,
-                          comm);
+  int err = MPI_Neighbor_alltoallv(
+      _send_data.data(), _recv_count.data(), _recv_offset.data(), MPI_DOUBLE,
+      _xsp.valuePtr(), _send_count.data(), _send_offset.data(), MPI_DOUBLE,
+      _neighbour_comm);
   if (err != MPI_SUCCESS)
     throw std::runtime_error("MPI failure");
 }

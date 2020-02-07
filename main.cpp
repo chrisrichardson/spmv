@@ -3,6 +3,7 @@
 
 #include <chrono>
 #include <iostream>
+#include <memory>
 #include <mpi.h>
 #include <sstream>
 
@@ -132,8 +133,8 @@ int main(int argc, char** argv)
 
   // Make distributed vector - this is the only
   // one that needs to be 'sparse'
-  DistributedVector psp(MPI_COMM_WORLD, A);
-  auto p = psp.vec();
+  auto psp = std::make_shared<DistributedVector>(MPI_COMM_WORLD, A);
+  auto p = psp->vec();
 
   // Set up values
   for (int i = 0; i < M; ++i)
@@ -150,8 +151,8 @@ int main(int argc, char** argv)
   Eigen::VectorXd q;
   for (int i = 0; i < 10000; ++i)
   {
-    psp.update(MPI_COMM_WORLD);
-    q = A * psp.spvec();
+    psp->update(MPI_COMM_WORLD);
+    q = A * psp->spvec();
     p = q;
   }
 
@@ -181,6 +182,8 @@ int main(int argc, char** argv)
   //     std::cout << s.str() << "\n";
   //   MPI_Barrier(MPI_COMM_WORLD);
   // }
+
+  psp.reset();
 
   MPI_Finalize();
   return 0;
