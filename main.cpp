@@ -46,7 +46,7 @@ int main(int argc, char** argv)
   std::cout << "# rank = " << rank << "/" << size << "\n";
 
   // Make a square Matrix divided evenly across cores
-  int N = 1000;
+  int N = 50;
 
   std::vector<index_type> ranges = owner_ranges(MPI_COMM_WORLD, N);
 
@@ -63,6 +63,7 @@ int main(int argc, char** argv)
   // Set up A
   // Add entries on all local rows
   // Using [local_row, global_column] indexing
+  double gamma = 0.1;
   for (unsigned int i = 0; i < M; ++i)
   {
     // Special case for very first and last global rows
@@ -72,9 +73,9 @@ int main(int argc, char** argv)
       A.insert(i, i) = 1.0;
     else
     {
-      A.insert(i, r0 + i - 1) = 1.0;
-      A.insert(i, r0 + i) = -2.0;
-      A.insert(i, r0 + i + 1) = 1.0;
+      A.insert(i, r0 + i - 1) = gamma;
+      A.insert(i, r0 + i) = 1.0 - 2.0 * gamma;
+      A.insert(i, r0 + i + 1) = gamma;
     }
   }
   A.makeCompressed();
@@ -84,52 +85,62 @@ int main(int argc, char** argv)
   DistributedVector psp(MPI_COMM_WORLD, A, ranges);
   auto p = psp.vec();
 
-  // RHS vector
-  Eigen::VectorXd b(M);
-
   // Set up values
   for (unsigned int i = 0; i != M; ++i)
   {
     double z = (double)(i + r0) / double(N);
-    b[i] = exp(-10 * pow(5 * (z - 0.5), 2.0));
+    p[i] = exp(-10 * pow(5 * (z - 0.5), 2.0));
   }
 
-  // Residual vector
-  Eigen::VectorXd r(M);
-  r = b;
-  // Assign to dense part of sparse vector
-  p = r;
-  Eigen::VectorXd y(M);
-  Eigen::VectorXd x(M);
+  // Apply matrix a few times
+  Eigen::VectorXd q;
 
-  // Iterations of CG
-  for (unsigned int k = 0; k != 500; ++k)
+  std::stringstream s;
+
+  for (int i = 0; i < 10; ++i)
   {
-    double rnorm = r.squaredNorm();
-    // FIXME: need to MPI_SUM
-
-    // y = A.p
     psp.update(MPI_COMM_WORLD);
-    y = A * psp.spvec();
-
-    // Update x and r
-    double alpha = rnorm / p.dot(y);
-    // FIXME: need to MPI_SUM
-    x += alpha * p;
-    r -= alpha * y;
-
-    // Update p
-    double beta = r.squaredNorm() / rnorm;
-    // FIXME: need to MPI_SUM
-    p *= beta;
-    p += r;
-    //    std::cerr << k << ":" << rnorm << "\n";
+    q = A * psp.spvec();
+    p = q;
   }
+
+  // // Residual vector
+  // Eigen::VectorXd r(M);
+  // r = b;
+  // // Assign to dense part of sparse vector
+  // p = r;
+  // Eigen::VectorXd y(M);
+  // Eigen::VectorXd x(M);
+
+  // // Iterations of CG
+  // for (unsigned int k = 0; k != 500; ++k)
+  // {
+  //   double rnorm = r.squaredNorm();
+  //   // FIXME: need to MPI_SUM
+
+  //   // y = A.p
+  //   psp.update(MPI_COMM_WORLD);
+  //   y = A * psp.spvec();
+
+  //   // Update x and r
+  //   double alpha = rnorm / p.dot(y);
+  //   // FIXME: need to MPI_SUM
+  //   x += alpha * p;
+  //   r -= alpha * y;
+
+  //   // Update p
+  //   double beta = r.squaredNorm() / rnorm;
+  //   // FIXME: need to MPI_SUM
+  //   p *= beta;
+  //   p += r;
+  //   //    std::cerr << k << ":" << rnorm << "\n";
+  // }
 
   // Output
-  std::stringstream s;
+  s << "[";
   for (unsigned int i = 0; i != M; ++i)
-    s << x[i] << "\n";
+    s << p[i] << " ";
+  s << "]";
 
   for (unsigned int i = 0; i != size; ++i)
   {
