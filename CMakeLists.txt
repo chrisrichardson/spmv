@@ -15,7 +15,7 @@ cmake_policy(SET CMP0004 NEW)
 
 set(CMAKE_CXX_FLAGS "-g -O2 -Werror=all")
 
-find_package(MPI)
+find_package(MPI REQUIRED)
 
 find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR} ${MPI_INCLUDE_PATH})

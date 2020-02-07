@@ -93,7 +93,7 @@ int main(int argc, char** argv)
   std::cout << "# rank = " << rank << "/" << size << "\n";
 
   // Make a square Matrix divided evenly across cores
-  int N = 50;
+  int N = 5000;
 
   std::vector<index_type> ranges = owner_ranges(size, N);
 
@@ -145,26 +145,33 @@ int main(int argc, char** argv)
 
   // Temporary variable
   Eigen::VectorXd q;
-  for (int i = 0; i < 10; ++i)
+  for (int i = 0; i < 10000; ++i)
   {
     psp.update(MPI_COMM_WORLD);
     q = A * psp.spvec();
     p = q;
   }
 
-  // Output
-  std::stringstream s;
-  s << rank << " [";
-  for (int i = 0; i < M; ++i)
-    s << p[i] << " ";
-  s << "]";
+  double pnorm = p.squaredNorm();
+  double pnorm_sum;
+  MPI_Allreduce(&pnorm, &pnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-  for (int i = 0; i < size; ++i)
-  {
-    if (i == rank)
-      std::cout << s.str() << "\n";
-    MPI_Barrier(MPI_COMM_WORLD);
-  }
+  if (rank == 0)
+    std::cout << "norm = " << pnorm_sum << "\n";
+
+  // // Output
+  // std::stringstream s;
+  // s << rank << " [";
+  // for (int i = 0; i < M; ++i)
+  //   s << p[i] << " ";
+  // s << "]";
+
+  // for (int i = 0; i < size; ++i)
+  // {
+  //   if (i == rank)
+  //     std::cout << s.str() << "\n";
+  //   MPI_Barrier(MPI_COMM_WORLD);
+  // }
 
   MPI_Finalize();
   return 0;
