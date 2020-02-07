@@ -6,7 +6,7 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v2
     - name: Install Eigen3
@@ -15,3 +15,5 @@ jobs:
       run: cmake .
     - name: make
       run: make
+    - name: Run with 2 processes
+      run: mpirun -n 2 ./eigen-mult

@@ -1,6 +1,7 @@
 // Copyright (C) 2018 Chris Richardson (chris@bpi.cam.ac.uk)
 // SPDX-License-Identifier:    LGPL-3.0-or-later
 
+#include <chrono>
 #include <iostream>
 #include <mpi.h>
 #include <sstream>
@@ -143,6 +144,8 @@ int main(int argc, char** argv)
 
   // Apply matrix a few times
 
+  auto start = std::chrono::system_clock::now();
+
   // Temporary variable
   Eigen::VectorXd q;
   for (int i = 0; i < 10000; ++i)
@@ -152,12 +155,18 @@ int main(int argc, char** argv)
     p = q;
   }
 
+  auto end = std::chrono::system_clock::now();
+  std::chrono::duration<double> diff = end - start;
+
   double pnorm = p.squaredNorm();
   double pnorm_sum;
   MPI_Allreduce(&pnorm, &pnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
   if (rank == 0)
+  {
+    std::cout << "time = " << diff.count() << "s.\n";
     std::cout << "norm = " << pnorm_sum << "\n";
+  }
 
   // // Output
   // std::stringstream s;
