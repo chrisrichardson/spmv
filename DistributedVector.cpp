@@ -46,37 +46,33 @@ DistributedVector::DistributedVector(
 
   // Finished filling
 
-  index_type* dptr = _xsp.innerIndexPtr();
-  index_type* dptr_end = dptr + _xsp.nonZeros();
-
-  // Find index of r0 - location of dense x within _xsp
-  index_type* i0_ptr = std::find(dptr, dptr_end, r0);
-  assert(i0_ptr != dptr_end);
-  _i0 = i0_ptr - dptr;
-
   // Get indices of filled values from xsp in each range "what this process
   // needs" - and send indices to each process
 
   // Calculate NNZ in each range
-  // FIXME - calculate _send_count directly...
-  _send_count.resize(mpi_size, 0);
-  int r = 0;
-  for (index_type* d = dptr; d != dptr_end; ++d)
-  {
-    while (*d >= ranges[r + 1])
-      ++r;
-    ++_send_count[r];
-  }
 
   std::vector<int> neighbours;
-  std::vector<int> send_count_neighbour;
-  for (int i = 0; i < mpi_size; ++i)
-    if (_send_count[i] > 0 and i != mpi_rank)
+  _i0 = -1;
+
+  index_type* dptr = _xsp.innerIndexPtr();
+  index_type* dptr_end = dptr + _xsp.nonZeros();
+  index_type* d0 = dptr;
+  for (std::size_t i = 0; i < ranges.size(); ++i)
+  {
+    index_type* d1 = std::lower_bound(d0, dptr_end, ranges[i]);
+
+    if ((int)i == mpi_rank)
+      _i0 = d1 - dptr;
+
+    if (d1 > d0 and (int)(i - 1) != mpi_rank)
     {
-      neighbours.push_back(i);
-      send_count_neighbour.push_back(_send_count[i]);
+      neighbours.push_back(i - 1);
+      _send_count.push_back(d1 - d0);
     }
-  _send_count = send_count_neighbour;
+
+    d0 = d1;
+  }
+  assert(_i0 != -1);
 
   const int neighbour_size = neighbours.size();
 

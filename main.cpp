@@ -183,6 +183,7 @@ int main(int argc, char** argv)
   //   MPI_Barrier(MPI_COMM_WORLD);
   // }
 
+  // Destroy here before MPI_Finalize, because it holds a comm
   psp.reset();
 
   MPI_Finalize();
