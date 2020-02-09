@@ -3,6 +3,12 @@
 
 #include <chrono>
 #include <iostream>
+#include <memory>
+
+#ifdef HAS_MKL
+#include <mkl.h>
+#endif
+
 #include <mpi.h>
 #include <sstream>
 
@@ -38,7 +44,7 @@ void cg(const Eigen::Ref<const Eigen::SparseMatrix<double, Eigen::RowMajor>>& A,
   for (int k = 0; k < 500; ++k)
   {
     // y = A.p
-    psp.update(MPI_COMM_WORLD);
+    psp.update();
     y = A * psp.spvec();
 
     // Update x and r
@@ -109,10 +115,45 @@ int main(int argc, char** argv)
 
   std::cout << "# rank = " << mpi_rank << "/" << mpi_size << "\n";
 
+#ifdef HAS_MKL
+  // Remap columns to local indexing for MKL
+  std::map<int, int> global_to_local;
+  std::vector<MKL_INT> columns(A.outerIndexPtr()[M]);
+  for (std::size_t i = 0; i < columns.size(); ++i)
+  {
+    int global_index = A.innerIndexPtr()[i];
+    global_to_local[global_index] = 0;
+  }
+
+  int lc = 0;
+  for (auto& q : global_to_local)
+    q.second = lc++;
+
+  for (std::size_t i = 0; i < columns.size(); ++i)
+  {
+    int global_index = A.innerIndexPtr()[i];
+    columns[i] = global_to_local[global_index];
+  }
+
+  sparse_matrix_t A_mkl;
+  sparse_status_t status = mkl_sparse_d_create_csr(
+      &A_mkl, SPARSE_INDEX_BASE_ZERO, M, N, A.outerIndexPtr(),
+      A.outerIndexPtr() + 1, columns.data(), A.valuePtr());
+  assert(status == SPARSE_STATUS_SUCCESS);
+
+  status = mkl_sparse_optimize(A_mkl);
+  assert(status == SPARSE_STATUS_SUCCESS);
+
+  struct matrix_descr mat_desc;
+  mat_desc.type = SPARSE_MATRIX_TYPE_GENERAL;
+  mat_desc.diag = SPARSE_DIAG_NON_UNIT;
+
+#endif
+
   // Make distributed vector - this is the only
   // one that needs to be 'sparse'
-  DistributedVector psp(MPI_COMM_WORLD, A);
-  auto p = psp.vec();
+  auto psp = std::make_shared<DistributedVector>(MPI_COMM_WORLD, A);
+  auto p = psp->vec();
 
   // Set up values
   for (int i = 0; i < M; ++i)
@@ -126,11 +167,19 @@ int main(int argc, char** argv)
   auto start = std::chrono::system_clock::now();
 
   // Temporary variable
-  Eigen::VectorXd q;
+
+  Eigen::VectorXd q(p.size());
   for (int i = 0; i < 100; ++i)
   {
-    psp.update(MPI_COMM_WORLD);
-    q = A * psp.spvec();
+    psp->update();
+
+#ifdef HAS_MKL
+    mkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A_mkl, mat_desc,
+                    psp->spvec().valuePtr(), 0.0, q.data());
+#else
+    q = A * psp->spvec();
+#endif
+
     p = q;
   }
 
@@ -160,6 +209,9 @@ int main(int argc, char** argv)
   //     std::cout << s.str() << "\n";
   //   MPI_Barrier(MPI_COMM_WORLD);
   // }
+
+  // Destroy here before MPI_Finalize, because it holds a comm
+  psp.reset();
 
   MPI_Finalize();
   return 0;
