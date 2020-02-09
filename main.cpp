@@ -132,11 +132,33 @@ int main(int argc, char** argv)
   }
   A.makeCompressed();
 
+  // Remap columns to local indexing for MKL
+  std::map<int, int> global_to_local;
+  std::vector<MKL_INT> columns(A.outerIndexPtr()[M]);
+  for (std::size_t i = 0; i < columns.size(); ++i)
+  {
+    int global_index = A.innerIndexPtr()[i];
+    global_to_local[global_index] = 0;
+  }
+
+  int lc = 0;
+  for (auto& q : global_to_local)
+    q.second = lc++;
+
+  for (std::size_t i = 0; i < columns.size(); ++i)
+  {
+    int global_index = A.innerIndexPtr()[i];
+    columns[i] = global_to_local[global_index];
+  }
+
   sparse_matrix_t A_mkl;
-  sparse_index_base_t index_base = SPARSE_INDEX_BASE_ZERO;
-  mkl_sparse_d_create_csr(&A_mkl, index_base, M, N, A.outerIndexPtr(),
-                          A.outerIndexPtr() + 1, A.innerIndexPtr(),
-                          A.valuePtr());
+  sparse_status_t status = mkl_sparse_d_create_csr(
+      &A_mkl, SPARSE_INDEX_BASE_ZERO, M, N, A.outerIndexPtr(),
+      A.outerIndexPtr() + 1, columns.data(), A.valuePtr());
+  assert(status == SPARSE_STATUS_SUCCESS);
+
+  status = mkl_sparse_optimize(A_mkl);
+  assert(status == SPARSE_STATUS_SUCCESS);
 
   // Make distributed vector - this is the only
   // one that needs to be 'sparse'
@@ -156,6 +178,7 @@ int main(int argc, char** argv)
 
   struct matrix_descr mat_desc;
   mat_desc.type = SPARSE_MATRIX_TYPE_GENERAL;
+  mat_desc.diag = SPARSE_DIAG_NON_UNIT;
 
   // Temporary variable
   Eigen::VectorXd q(p.size());

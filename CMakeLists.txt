@@ -24,4 +24,4 @@ include_directories(${EIGEN3_INCLUDE_DIR} ${MPI_INCLUDE_PATH})
 add_executable(${PROJECT_NAME} main.cpp DistributedVector.cpp)
 
 # Target libraries
-target_link_libraries(${PROJECT_NAME} ${MPI_LIBRARIES} mkl_intel_ilp64 mkl_sequential mkl_core)
+target_link_libraries(${PROJECT_NAME} ${MPI_LIBRARIES} mkl_intel_lp64 mkl_sequential mkl_core)
