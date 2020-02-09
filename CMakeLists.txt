@@ -17,11 +17,18 @@ set(CMAKE_CXX_FLAGS "-g -O2 -Werror=all")
 
 find_package(MPI REQUIRED)
 
+set(BLA_VENDOR Intel10_64lp)
+find_package(LAPACK)
+
 find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR} ${MPI_INCLUDE_PATH})
 
 # Executable
 add_executable(${PROJECT_NAME} main.cpp DistributedVector.cpp)
 
+if (LAPACK_FOUND)
+  target_compile_definitions(${PROJECT_NAME} PUBLIC HAS_MKL)
+endif()
+
 # Target libraries
-target_link_libraries(${PROJECT_NAME} ${MPI_LIBRARIES} mkl_intel_lp64 mkl_sequential mkl_core)
+target_link_libraries(${PROJECT_NAME} ${MPI_LIBRARIES} ${LAPACK_LIBRARIES})
