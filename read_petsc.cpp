@@ -54,7 +54,7 @@ read_petsc_binary(MPI_Comm comm, std::string filename)
 
     std::int32_t* int_data = (std::int32_t*)(memblock.data());
     int id = int_data[0];
-    std::cout << id << "\n";
+    assert(id == 1211216);
 
     int nrows = int_data[1];
     int ncols = int_data[2];

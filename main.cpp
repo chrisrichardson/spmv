@@ -69,26 +69,6 @@ void cg(const Eigen::Ref<const Eigen::SparseMatrix<double, Eigen::RowMajor>>& A,
   }
 }
 //-----------------------------------------------------------------------------
-// Divide size into N ~equal chunks
-std::vector<index_type> owner_ranges(std::int64_t size, index_type N)
-{
-  // Compute number of items per process and remainder
-  const std::int64_t n = N / size;
-  const std::int64_t r = N % size;
-
-  // Compute local range
-  std::vector<index_type> ranges;
-  for (int rank = 0; rank < (size + 1); ++rank)
-  {
-    if (rank < r)
-      ranges.push_back(rank * (n + 1));
-    else
-      ranges.push_back(rank * n + r);
-  }
-
-  return ranges;
-}
-//-----------------------------------------------------------------------------
 int main(int argc, char** argv)
 {
   MPI_Init(&argc, &argv);
@@ -98,6 +78,7 @@ int main(int argc, char** argv)
   int mpi_size;
   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
+  // Read file created with "-ksp_view_mat binary" option
   auto A = read_petsc_binary(MPI_COMM_WORLD, "binaryoutput");
 
   // Get local range from number of rows in A
@@ -122,7 +103,7 @@ int main(int argc, char** argv)
   for (std::size_t i = 0; i < columns.size(); ++i)
   {
     int global_index = A.innerIndexPtr()[i];
-    global_to_local[global_index] = 0;
+    global_to_local.insert({global_index, 0});
   }
 
   int lc = 0;
