@@ -87,51 +87,27 @@ int main(int argc, char** argv)
 {
   MPI_Init(&argc, &argv);
 
-  int rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  int size;
-  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  int mpi_rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+  int mpi_size;
+  MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
-  auto A2 = read_petsc_binary(MPI_COMM_WORLD, "binaryoutput");
+  auto A = read_petsc_binary(MPI_COMM_WORLD, "binaryoutput");
 
-  std::cout << "# rank = " << rank << "/" << size << "\n";
+  // Get local range from number of rows in A
+  std::vector<int> nrows_all(mpi_size);
+  std::vector<index_type> ranges = {0};
+  int nrows = A.rows();
+  MPI_Allgather(&nrows, 1, MPI_INT, nrows_all.data(), 1, MPI_INT,
+                MPI_COMM_WORLD);
+  for (int i = 0; i < mpi_size; ++i)
+    ranges.push_back(ranges.back() + nrows_all[i]);
 
-  // Make a square Matrix divided evenly across cores
-  int N = 5000;
+  int N = ranges.back();
+  int M = A.rows();
+  int r0 = ranges[mpi_rank];
 
-  std::vector<index_type> ranges = owner_ranges(size, N);
-
-  index_type r0 = ranges[rank];
-  index_type r1 = ranges[rank + 1];
-  int M = r1 - r0;
-
-  std::cout << "# " << r0 << "-" << r1 << " \n";
-
-  // Local part of the matrix
-  // Must be RowMajor and compressed
-  Eigen::SparseMatrix<double, Eigen::RowMajor> A(M, N);
-
-  // Set up A
-  // Add entries on all local rows
-  // Using [local_row, global_column] indexing
-  double gamma = 0.1;
-  for (int i = 0; i < M; ++i)
-  {
-    // Global column diagonal index
-    int c0 = r0 + i;
-    // Special case for very first and last global rows
-    if (c0 == 0)
-      A.insert(i, c0) = 1.0;
-    else if (c0 == (N - 1))
-      A.insert(i, c0) = 1.0;
-    else
-    {
-      A.insert(i, c0 - 1) = gamma;
-      A.insert(i, c0) = 1.0 - 2.0 * gamma;
-      A.insert(i, c0 + 1) = gamma;
-    }
-  }
-  A.makeCompressed();
+  std::cout << "# rank = " << mpi_rank << "/" << mpi_size << "\n";
 
   // Make distributed vector - this is the only
   // one that needs to be 'sparse'
@@ -151,7 +127,7 @@ int main(int argc, char** argv)
 
   // Temporary variable
   Eigen::VectorXd q;
-  for (int i = 0; i < 10000; ++i)
+  for (int i = 0; i < 100; ++i)
   {
     psp.update(MPI_COMM_WORLD);
     q = A * psp.spvec();
@@ -165,7 +141,7 @@ int main(int argc, char** argv)
   double pnorm_sum;
   MPI_Allreduce(&pnorm, &pnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-  if (rank == 0)
+  if (mpi_rank == 0)
   {
     std::cout << "time = " << diff.count() << "s.\n";
     std::cout << "norm = " << pnorm_sum << "\n";
