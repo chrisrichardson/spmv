@@ -43,8 +43,8 @@ private:
   std::vector<index_type> _send_offset;
   std::vector<index_type> _recv_offset;
 
-  // Data buffer for sending to remotes
-  std::vector<double> _send_data;
+  // Data buffer for sending/receiving in local range
+  std::vector<double> _databuf;
 
   // Address and size of "local" entries in sparse vector
   index_type _i0;

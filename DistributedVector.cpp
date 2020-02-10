@@ -103,7 +103,7 @@ DistributedVector::DistributedVector(
   int count = _recv_offset.back();
 
   _indexbuf.resize(count);
-  _send_data.resize(count);
+  _databuf.resize(count);
 
   // Send global indices to remote processes that own them
   int err = MPI_Neighbor_alltoallv(
@@ -129,13 +129,13 @@ Eigen::SparseVector<double>& DistributedVector::spvec() { return _xsp; }
 //-----------------------------------------------------------------------------
 void DistributedVector::update()
 {
-  // Get data from global indices to send to other processes
+  // Get data from global indices to send to other processes, landing in their ghost region
   for (std::size_t i = 0; i < _indexbuf.size(); ++i)
-    _send_data[i] = _xsp.coeffRef(_indexbuf[i]);
+    _databuf[i] = _xsp.coeffRef(_indexbuf[i]);
 
   // Send actual values - NB meaning of _send and _recv count/offset is reversed
   int err = MPI_Neighbor_alltoallv(
-      _send_data.data(), _recv_count.data(), _recv_offset.data(), MPI_DOUBLE,
+      _databuf.data(), _recv_count.data(), _recv_offset.data(), MPI_DOUBLE,
       _xsp.valuePtr(), _send_count.data(), _send_offset.data(), MPI_DOUBLE,
       _neighbour_comm);
   if (err != MPI_SUCCESS)
@@ -144,15 +144,16 @@ void DistributedVector::update()
 //-----------------------------------------------------------------------------
 void DistributedVector::reverse_update()
 {
-  // Send values from local part of vector to remotes
+  // Send values from ghost region of vector to remotes
+  // accumulating in local vector.
   int err = MPI_Neighbor_alltoallv(
       _xsp.valuePtr(), _send_count.data(), _send_offset.data(), MPI_DOUBLE,
-      _send_data.data(), _recv_count.data(), _recv_offset.data(), MPI_DOUBLE,
+      _databuf.data(), _recv_count.data(), _recv_offset.data(), MPI_DOUBLE,
       _neighbour_comm);
   if (err != MPI_SUCCESS)
     throw std::runtime_error("MPI failure");
 
   for (std::size_t i = 0; i < _indexbuf.size(); ++i)
-    _xsp.coeffRef(_indexbuf[i]) += _send_data[i];
+    _xsp.coeffRef(_indexbuf[i]) += _databuf[i];
 }
 //-----------------------------------------------------------------------------
