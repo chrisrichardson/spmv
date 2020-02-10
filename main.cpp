@@ -5,7 +5,7 @@
 #include <iostream>
 #include <memory>
 
-#ifdef HAS_MKL
+#ifdef EIGEN_USE_MKL_ALL
 #include <mkl.h>
 #endif
 
@@ -39,7 +39,7 @@ std::vector<index_type> owner_ranges(std::int64_t size, index_type N)
   return ranges;
 }
 //-----------------------------------------------------------------------------
-Eigen::SparseMatrix<double, Eigen::RowMajor> create_A(MPI_Comm comm)
+Eigen::SparseMatrix<double, Eigen::RowMajor> create_A(MPI_Comm comm, int N)
 {
   int mpi_rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
@@ -47,8 +47,6 @@ Eigen::SparseMatrix<double, Eigen::RowMajor> create_A(MPI_Comm comm)
   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
   // Make a square Matrix divided evenly across cores
-  int N = 5000;
-
   std::vector<index_type> ranges = owner_ranges(mpi_size, N);
 
   index_type r0 = ranges[mpi_rank];
@@ -146,10 +144,10 @@ int main(int argc, char** argv)
   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
   // Either create a simple 1D stencil
-  //  auto A = create_A(MPI_COMM_WORLD);
+  auto A = create_A(MPI_COMM_WORLD, 50000 * mpi_size);
 
   // Or read file created with "-ksp_view_mat binary" option
-  auto A = read_petsc_binary(MPI_COMM_WORLD, "binaryoutput");
+  // auto A = read_petsc_binary(MPI_COMM_WORLD, "binaryoutput");
 
   // Get local range from number of rows in A
   std::vector<int> nrows_all(mpi_size);
@@ -166,7 +164,7 @@ int main(int argc, char** argv)
 
   std::cout << "# rank = " << mpi_rank << "/" << mpi_size << "\n";
 
-#ifdef HAS_MKL
+#ifdef EIGEN_USE_MKL_ALL
   // Remap columns to local indexing for MKL
   std::map<int, int> global_to_local;
   std::vector<MKL_INT> columns(A.outerIndexPtr()[M]);
@@ -217,7 +215,7 @@ int main(int argc, char** argv)
   }
 
   // Apply matrix a few times
-  int n_apply = 100;
+  int n_apply = 10000;
   if (mpi_rank == 0)
     std::cout << "Applying matrix " << n_apply << " times\n";
 
@@ -230,7 +228,7 @@ int main(int argc, char** argv)
   {
     psp->update();
 
-#ifdef HAS_MKL
+#ifdef EIGEN_USE_MKL_ALL
     mkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A_mkl, mat_desc,
                     psp->spvec().valuePtr(), 0.0, q.data());
 #else
