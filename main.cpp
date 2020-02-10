@@ -4,16 +4,13 @@
 #include <chrono>
 #include <iostream>
 #include <memory>
+#include <mpi.h>
+#include <Eigen/Dense>
+#include <Eigen/Sparse>
 
 #ifdef EIGEN_USE_MKL_ALL
 #include <mkl.h>
 #endif
-
-#include <mpi.h>
-#include <sstream>
-
-#include <Eigen/Dense>
-#include <Eigen/Sparse>
 
 #include "DistributedVector.h"
 #include "read_petsc.h"
@@ -52,10 +49,6 @@ Eigen::SparseMatrix<double, Eigen::RowMajor> create_A(MPI_Comm comm, int N)
   index_type r0 = ranges[mpi_rank];
   index_type r1 = ranges[mpi_rank + 1];
   int M = r1 - r0;
-
-  std::stringstream s;
-  s << mpi_rank << "] # " << r0 << "-" << r1 << " \n";
-  std::cout << s.str();
 
   // Local part of the matrix
   // Must be RowMajor and compressed
@@ -145,6 +138,11 @@ int main(int argc, char** argv)
   int mpi_size;
   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
+  // Keep list of timings
+  std::map<std::string, std::chrono::duration<double>> timings;
+
+  auto timer_start = std::chrono::system_clock::now();
+
   // Either create a simple 1D stencil
   auto A = create_A(MPI_COMM_WORLD, 50000 * mpi_size);
 
@@ -163,9 +161,6 @@ int main(int argc, char** argv)
   int N = ranges.back();
   int M = A.rows();
   int r0 = ranges[mpi_rank];
-
-  std::stringstream s;
-  s << "# rank = " << mpi_rank << "/" << mpi_size << "\n";
 
 #ifdef EIGEN_USE_MKL_ALL
   // Remap columns to local indexing for MKL
@@ -202,6 +197,11 @@ int main(int argc, char** argv)
 
 #endif
 
+    auto timer_end = std::chrono::system_clock::now();
+    timings["0.MatCreate"] += (timer_end - timer_start);
+
+    timer_start = std::chrono::system_clock::now();
+
   if (mpi_rank == 0)
     std::cout << "Creating vector\n";
 
@@ -217,23 +217,24 @@ int main(int argc, char** argv)
     p[i] = exp(-10 * pow(5 * (z - 0.5), 2.0));
   }
 
+  timer_end = std::chrono::system_clock::now();
+  timings["1.VecCreate"] += (timer_end - timer_start);
+
   // Apply matrix a few times
   int n_apply = 10000;
   if (mpi_rank == 0)
     std::cout << "Applying matrix " << n_apply << " times\n";
 
-  std::map<std::string, std::chrono::duration<double>> timings;
-  
   // Temporary variable
   Eigen::VectorXd q(p.size());
   for (int i = 0; i < n_apply; ++i)
   {
-    auto start = std::chrono::system_clock::now();
+    timer_start = std::chrono::system_clock::now();
     psp->update();
-    auto end = std::chrono::system_clock::now();
-    timings["Sparse Update"] += (end - start);
+    timer_end = std::chrono::system_clock::now();
+    timings["2.SparseUpdate"] += (timer_end - timer_start);
 
-    start = std::chrono::system_clock::now();
+    timer_start = std::chrono::system_clock::now();
 #ifdef EIGEN_USE_MKL_ALL
     mkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A_mkl, mat_desc,
                     psp->spvec().valuePtr(), 0.0, q.data());
@@ -244,13 +245,13 @@ int main(int argc, char** argv)
     // time on each process, and otherwise, the barrier will occur
     // in ghost update.
     MPI_Barrier(MPI_COMM_WORLD);
-    end = std::chrono::system_clock::now();
-    timings["SpMV"] += (end - start);
+    timer_end = std::chrono::system_clock::now();
+    timings["3.SpMV"] += (timer_end - timer_start);
 
-    start = std::chrono::system_clock::now();
+    timer_start = std::chrono::system_clock::now();
     p = q;
-    end = std::chrono::system_clock::now();
-    timings["Copy"] += (end - start);
+    timer_end = std::chrono::system_clock::now();
+    timings["4.Copy"] += (timer_end - timer_start);
   }
 
   double pnorm = p.squaredNorm();
@@ -259,15 +260,16 @@ int main(int argc, char** argv)
 
   if (mpi_rank == 0)
   {
-    std::cout << "\nTimings\n-------------------\n";
+    std::cout << "\nTimings (" << mpi_size << ")\n----------------------------\n";
     std::chrono::duration<double> total_time;
     for (auto q : timings)
     {  
-      std::cout << "[" << q.first << "] = " << q.second.count() << "\n";
+      std::string pad(16 - q.first.size(), ' ');
+      std::cout << "[" << q.first << "]"  << pad << q.second.count() << "\n";
       total_time += q.second;
     }
-    std::cout << "[Total] = " << total_time.count() << "\n";
-    std::cout << "-------------------\n";
+    std::cout << "[Total]           " << total_time.count() << "\n";
+    std::cout << "----------------------------\n";
     std::cout << "norm = " << pnorm_sum << "\n";
   }
 
