@@ -24,7 +24,7 @@ find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR} ${MPI_INCLUDE_PATH})
 
 # Executable
-add_executable(${PROJECT_NAME} main.cpp DistributedVector.cpp)
+add_executable(${PROJECT_NAME} main.cpp DistributedVector.cpp read_petsc.cpp)
 
 if (LAPACK_FOUND)
   target_compile_definitions(${PROJECT_NAME} PUBLIC HAS_MKL)

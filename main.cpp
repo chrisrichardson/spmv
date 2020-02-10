@@ -16,6 +16,7 @@
 #include <Eigen/Sparse>
 
 #include "DistributedVector.h"
+#include "read_petsc.h"
 
 //-----------------------------------------------------------------------------
 // Divide size into N ~equal chunks
@@ -144,9 +145,24 @@ int main(int argc, char** argv)
   int mpi_size;
   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
-  Eigen::SparseMatrix<double, Eigen::RowMajor> A = create_A(MPI_COMM_WORLD);
+  // Either create a simple 1D stencil
+  //  auto A = create_A(MPI_COMM_WORLD);
+
+  // Or read file created with "-ksp_view_mat binary" option
+  auto A = read_petsc_binary(MPI_COMM_WORLD, "binaryoutput");
+
+  // Get local range from number of rows in A
+  std::vector<int> nrows_all(mpi_size);
+  std::vector<index_type> ranges = {0};
+  int nrows = A.rows();
+  MPI_Allgather(&nrows, 1, MPI_INT, nrows_all.data(), 1, MPI_INT,
+                MPI_COMM_WORLD);
+  for (int i = 0; i < mpi_size; ++i)
+    ranges.push_back(ranges.back() + nrows_all[i]);
+
+  int N = ranges.back();
   int M = A.rows();
-  int N = A.cols();
+  int r0 = ranges[mpi_rank];
 
   std::cout << "# rank = " << mpi_rank << "/" << mpi_size << "\n";
 
@@ -157,7 +173,7 @@ int main(int argc, char** argv)
   for (std::size_t i = 0; i < columns.size(); ++i)
   {
     int global_index = A.innerIndexPtr()[i];
-    global_to_local[global_index] = 0;
+    global_to_local.insert({global_index, 0});
   }
 
   int lc = 0;
@@ -185,6 +201,9 @@ int main(int argc, char** argv)
 
 #endif
 
+  if (mpi_rank == 0)
+    std::cout << "Creating vector\n";
+
   // Make distributed vector - this is the only
   // one that needs to be 'sparse'
   auto psp = std::make_shared<DistributedVector>(MPI_COMM_WORLD, A);
@@ -198,14 +217,19 @@ int main(int argc, char** argv)
   }
 
   // Apply matrix a few times
+  int n_apply = 100;
+  if (mpi_rank == 0)
+    std::cout << "Applying matrix " << n_apply << " times\n";
 
   auto start = std::chrono::system_clock::now();
 
   // Temporary variable
+
   Eigen::VectorXd q(p.size());
-  for (int i = 0; i < 10000; ++i)
+  for (int i = 0; i < n_apply; ++i)
   {
     psp->update();
+
 #ifdef HAS_MKL
     mkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A_mkl, mat_desc,
                     psp->spvec().valuePtr(), 0.0, q.data());

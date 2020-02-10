@@ -4,6 +4,8 @@
 #include "DistributedVector.h"
 #include <algorithm>
 #include <iostream>
+#include <set>
+#include <vector>
 
 //-----------------------------------------------------------------------------
 DistributedVector::DistributedVector(
@@ -34,12 +36,16 @@ DistributedVector::DistributedVector(
 
   // Look for all columns with non-zeros - insert 1.0 (a non zero)
   const index_type nmax = *(A.outerIndexPtr() + A.rows());
+  std::set<index_type> valid_cols;
   for (auto ptr = A.innerIndexPtr(); ptr != A.innerIndexPtr() + nmax; ++ptr)
-    _xsp.coeffRef(*ptr) = 1.0;
+    valid_cols.insert(*ptr);
 
   // Insert all local rows/cols - (in case any got missed...?)
   for (index_type i = r0; i < r1; ++i)
-    _xsp.coeffRef(i) = 1.0;
+    valid_cols.insert(i);
+
+  for (index_type q : valid_cols)
+    _xsp.coeffRef(q) = 1.0;
 
   // Set to zero without removing non-zeros (!)
   _xsp *= 0;
