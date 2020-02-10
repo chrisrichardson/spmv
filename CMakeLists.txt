@@ -28,7 +28,8 @@ add_executable(${PROJECT_NAME} main.cpp DistributedVector.cpp read_petsc.cpp)
 
 if(BLAS_FOUND)
     target_compile_definitions(${PROJECT_NAME} PUBLIC EIGEN_USE_MKL_ALL)
+    target_link_libraries(${PROJECT_NAME} ${BLAS_LIBRARIES})
 endif()
 
 # Target libraries
-target_link_libraries(${PROJECT_NAME} ${MPI_LIBRARIES} ${BLAS_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} ${MPI_LIBRARIES})
