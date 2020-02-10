@@ -146,10 +146,10 @@ int main(int argc, char** argv)
   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
   // Either create a simple 1D stencil
-  //  auto A = create_A(MPI_COMM_WORLD);
+   auto A = create_A(MPI_COMM_WORLD);
 
   // Or read file created with "-ksp_view_mat binary" option
-  auto A = read_petsc_binary(MPI_COMM_WORLD, "binaryoutput");
+  //   auto A = read_petsc_binary(MPI_COMM_WORLD, "binaryoutput");
 
   // Get local range from number of rows in A
   std::vector<int> nrows_all(mpi_size);
@@ -217,31 +217,38 @@ int main(int argc, char** argv)
   }
 
   // Apply matrix a few times
-  int n_apply = 100;
+  int n_apply = 10000;
   if (mpi_rank == 0)
     std::cout << "Applying matrix " << n_apply << " times\n";
 
-  auto start = std::chrono::system_clock::now();
-
+  std::map<std::string, std::chrono::duration<double>> timings;
+  
   // Temporary variable
-
+  auto start = std::chrono::system_clock::now();
+  auto end = std::chrono::system_clock::now();
   Eigen::VectorXd q(p.size());
   for (int i = 0; i < n_apply; ++i)
   {
+    start = std::chrono::system_clock::now();
     psp->update();
+    end = std::chrono::system_clock::now();
+    timings["Sparse Update"] += (end - start);
 
+    start = std::chrono::system_clock::now();
 #ifdef HAS_MKL
     mkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A_mkl, mat_desc,
                     psp->spvec().valuePtr(), 0.0, q.data());
 #else
     q = A * psp->spvec();
 #endif
+    end = std::chrono::system_clock::now();
+    timings["SpMV"] += (end - start);
 
+    start = std::chrono::system_clock::now();
     p = q;
+    end = std::chrono::system_clock::now();
+    timings["Copy"] += (end - start);
   }
-
-  auto end = std::chrono::system_clock::now();
-  std::chrono::duration<double> diff = end - start;
 
   double pnorm = p.squaredNorm();
   double pnorm_sum;
@@ -249,7 +256,10 @@ int main(int argc, char** argv)
 
   if (mpi_rank == 0)
   {
-    std::cout << "time = " << diff.count() << "s.\n";
+    std::cout << "\nTimings\n-------------------\n";
+    for (auto q : timings)
+      std::cout << "[" << q.first << "] = " << q.second.count() << "\n";
+    std::cout << "-------------------\n";
     std::cout << "norm = " << pnorm_sum << "\n";
   }
 
