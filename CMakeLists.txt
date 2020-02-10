@@ -18,7 +18,7 @@ set(CMAKE_CXX_FLAGS "-g -O2 -Werror=all")
 find_package(MPI REQUIRED)
 
 set(BLA_VENDOR Intel10_64lp)
-find_package(LAPACK)
+find_package(BLAS)
 
 find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR} ${MPI_INCLUDE_PATH})
@@ -26,9 +26,9 @@ include_directories(${EIGEN3_INCLUDE_DIR} ${MPI_INCLUDE_PATH})
 # Executable
 add_executable(${PROJECT_NAME} main.cpp DistributedVector.cpp read_petsc.cpp)
 
-if (LAPACK_FOUND)
-  target_compile_definitions(${PROJECT_NAME} PUBLIC HAS_MKL)
+if(BLAS_FOUND)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC EIGEN_USE_MKL_ALL)
 endif()
 
 # Target libraries
-target_link_libraries(${PROJECT_NAME} ${MPI_LIBRARIES} ${LAPACK_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} ${MPI_LIBRARIES} ${BLAS_LIBRARIES})
