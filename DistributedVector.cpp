@@ -142,3 +142,17 @@ void DistributedVector::update()
     throw std::runtime_error("MPI failure");
 }
 //-----------------------------------------------------------------------------
+void DistributedVector::reverse_update()
+{
+  // Send values from local part of vector to remotes
+  int err = MPI_Neighbor_alltoallv(
+      _xsp.valuePtr(), _send_count.data(), _send_offset.data(), MPI_DOUBLE,
+      _send_data.data(), _recv_count.data(), _recv_offset.data(), MPI_DOUBLE,
+      _neighbour_comm);
+  if (err != MPI_SUCCESS)
+    throw std::runtime_error("MPI failure");
+
+  for (std::size_t i = 0; i < _indexbuf.size(); ++i)
+    _xsp.coeffRef(_indexbuf[i]) += _send_data[i];
+}
+//-----------------------------------------------------------------------------
