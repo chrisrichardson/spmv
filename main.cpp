@@ -53,7 +53,9 @@ Eigen::SparseMatrix<double, Eigen::RowMajor> create_A(MPI_Comm comm, int N)
   index_type r1 = ranges[mpi_rank + 1];
   int M = r1 - r0;
 
-  std::cout << "# " << r0 << "-" << r1 << " \n";
+  std::stringstream s;
+  s << mpi_rank << "] # " << r0 << "-" << r1 << " \n";
+  std::cout << s.str();
 
   // Local part of the matrix
   // Must be RowMajor and compressed
@@ -162,7 +164,8 @@ int main(int argc, char** argv)
   int M = A.rows();
   int r0 = ranges[mpi_rank];
 
-  std::cout << "# rank = " << mpi_rank << "/" << mpi_size << "\n";
+  std::stringstream s;
+  s << "# rank = " << mpi_rank << "/" << mpi_size << "\n";
 
 #ifdef EIGEN_USE_MKL_ALL
   // Remap columns to local indexing for MKL

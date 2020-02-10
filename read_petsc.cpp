@@ -27,11 +27,10 @@ std::vector<std::int64_t> owner_ranges(int size, std::int64_t N)
 Eigen::SparseMatrix<double, Eigen::RowMajor>
 read_petsc_binary(MPI_Comm comm, std::string filename)
 {
-  std::streampos size;
   Eigen::SparseMatrix<double, Eigen::RowMajor> A;
 
-  int rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  int mpi_rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
   int mpi_size;
   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
@@ -39,11 +38,11 @@ read_petsc_binary(MPI_Comm comm, std::string filename)
                      std::ios::in | std::ios::binary | std::ios::ate);
   if (file.is_open())
   {
-    size = file.tellg();
-    std::vector<char> memblock(size);
+    // Get first 4 ints from file
+    std::vector<char> memblock(16);
     file.seekg(0, std::ios::beg);
-    file.read(memblock.data(), size);
-    file.close();
+    file.read(memblock.data(), 16);
+
     char* ptr = memblock.data();
     for (int i = 0; i < 4; ++i)
     {
@@ -59,15 +58,20 @@ read_petsc_binary(MPI_Comm comm, std::string filename)
     int nrows = int_data[1];
     int ncols = int_data[2];
     int nnz_tot = int_data[3];
-
     std::vector<std::int64_t> ranges = owner_ranges(mpi_size, nrows);
 
-    std::cout << nrows << "x" << ncols << " = " << nnz_tot << "\n";
-    std::cout << "local = " << ranges[rank] << "-" << ranges[rank + 1] << "\n";
-    int nrows_local = ranges[rank + 1] - ranges[rank];
+    if (mpi_rank == 0)
+      std::cout << "Read file: " << filename << ": " << nrows << "x" 
+                << ncols << " = " << nnz_tot << "\n";
+
+    int nrows_local = ranges[mpi_rank + 1] - ranges[mpi_rank];
 
     A.resize(nrows_local, ncols);
 
+    // Reset memory block and read nnz per row for all rows
+    memblock.resize(nrows*4);
+    ptr = memblock.data();
+    file.read(memblock.data(), nrows*4);
     std::vector<std::int32_t> nnz(nrows);
     int nnz_sum = 0;
     for (int i = 0; i < nrows; ++i)
@@ -80,10 +84,32 @@ read_petsc_binary(MPI_Comm comm, std::string filename)
     }
     assert(nnz_sum == nnz_tot);
 
-    // Pointer to values
-    char* vptr = ptr + 4 * nnz_tot;
+    // Get offset and size for data
+    int nnz_offset = 0;
+    int nnz_size = 0;
+    for (int i = 0; i < ranges[mpi_rank]; ++i)
+      nnz_offset += nnz[i];
+    for (int i = ranges[mpi_rank]; i < ranges[mpi_rank + 1]; ++i)
+      nnz_size += nnz[i];
 
-    for (int row = 0; row < nrows; ++row)
+    std::streampos value_data_pos = file.tellg() + (std::streampos)(nnz_tot*4 + nnz_offset*8);
+
+    // Read col indices for each row
+    memblock.resize(nnz_size*4);
+    ptr = memblock.data();
+    file.seekg(nnz_offset*4, std::ios::cur);
+    file.read(memblock.data(), nnz_size*4);
+
+    // Read values
+    std::vector<char> valuedata(nnz_size*8);
+    file.seekg(value_data_pos, std::ios::beg);
+    file.read(valuedata.data(), nnz_size*8);
+    file.close();
+
+    // Pointer to values
+    char* vptr = valuedata.data();
+
+    for (int row = ranges[mpi_rank]; row < ranges[mpi_rank + 1]; ++row)
     {
       for (int j = 0; j < nnz[row]; ++j)
       {
@@ -99,10 +125,10 @@ read_petsc_binary(MPI_Comm comm, std::string filename)
         double val = *((double*)vptr);
         vptr += 8;
 
-        if (row >= ranges[rank] and row < ranges[rank + 1])
-          A.insert(row - ranges[rank], col) = val;
+        A.insert(row - ranges[mpi_rank], col) = val;
       }
     }
+
   }
   else
     throw std::runtime_error("Could not open file");

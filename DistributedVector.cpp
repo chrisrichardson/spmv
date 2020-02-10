@@ -30,8 +30,11 @@ DistributedVector::DistributedVector(
   _local_size = r1 - r0;
   assert(_local_size = nrows);
 
-  std::cout << "# local_size[" << mpi_rank << "] = " << _local_size << "/" << N
+  std::stringstream s;
+  s << "# local_size[" << mpi_rank << "] = " << _local_size << "/" << N
             << "\n";
+  std::cout << s.str();
+  
   _xsp.resize(N);
 
   // Look for all columns with non-zeros - insert 1.0 (a non zero)
