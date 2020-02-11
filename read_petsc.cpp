@@ -1,3 +1,6 @@
+// Copyright (C) 2020 Chris Richardson (chris@bpi.cam.ac.uk)
+// SPDX-License-Identifier:    LGPL-3.0-or-later
+
 #include "read_petsc.h"
 #include <cassert>
 #include <fstream>
@@ -61,17 +64,17 @@ read_petsc_binary(MPI_Comm comm, std::string filename)
     std::vector<std::int64_t> ranges = owner_ranges(mpi_size, nrows);
 
     if (mpi_rank == 0)
-      std::cout << "Read file: " << filename << ": " << nrows << "x" 
-                << ncols << " = " << nnz_tot << "\n";
+      std::cout << "Read file: " << filename << ": " << nrows << "x" << ncols
+                << " = " << nnz_tot << "\n";
 
     std::int64_t nrows_local = ranges[mpi_rank + 1] - ranges[mpi_rank];
 
     A.resize(nrows_local, ncols);
 
     // Reset memory block and read nnz per row for all rows
-    memblock.resize(nrows*4);
+    memblock.resize(nrows * 4);
     ptr = memblock.data();
-    file.read(memblock.data(), nrows*4);
+    file.read(memblock.data(), nrows * 4);
     std::vector<std::int32_t> nnz(nrows);
     std::int64_t nnz_sum = 0;
     for (int i = 0; i < nrows; ++i)
@@ -92,18 +95,19 @@ read_petsc_binary(MPI_Comm comm, std::string filename)
     for (std::int64_t i = ranges[mpi_rank]; i < ranges[mpi_rank + 1]; ++i)
       nnz_size += nnz[i];
 
-    std::streampos value_data_pos = file.tellg() + (std::streampos)(nnz_tot*4 + nnz_offset*8);
+    std::streampos value_data_pos
+        = file.tellg() + (std::streampos)(nnz_tot * 4 + nnz_offset * 8);
 
     // Read col indices for each row
-    memblock.resize(nnz_size*4);
+    memblock.resize(nnz_size * 4);
     ptr = memblock.data();
-    file.seekg(nnz_offset*4, std::ios::cur);
-    file.read(memblock.data(), nnz_size*4);
+    file.seekg(nnz_offset * 4, std::ios::cur);
+    file.read(memblock.data(), nnz_size * 4);
 
     // Read values
-    std::vector<char> valuedata(nnz_size*8);
+    std::vector<char> valuedata(nnz_size * 8);
     file.seekg(value_data_pos, std::ios::beg);
-    file.read(valuedata.data(), nnz_size*8);
+    file.read(valuedata.data(), nnz_size * 8);
     file.close();
 
     // Pointer to values
@@ -128,7 +132,6 @@ read_petsc_binary(MPI_Comm comm, std::string filename)
         A.insert(row - ranges[mpi_rank], col) = val;
       }
     }
-
   }
   else
     throw std::runtime_error("Could not open file");
