@@ -113,9 +113,11 @@ DistributedVector::DistributedVector(
   if (err != MPI_SUCCESS)
     throw std::runtime_error("MPI failure");
 
+#ifdef DEBUG
   // Should be in own range
   for (index_type i : _indexbuf)
     assert(i >= r0 and i < r1);
+#endif
 }
 //-----------------------------------------------------------------------------
 DistributedVector::~DistributedVector() { MPI_Comm_free(&_neighbour_comm); }

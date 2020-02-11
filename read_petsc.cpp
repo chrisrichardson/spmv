@@ -56,7 +56,8 @@ read_petsc_binary(MPI_Comm comm, std::string filename)
 
     std::int32_t* int_data = (std::int32_t*)(memblock.data());
     int id = int_data[0];
-    assert(id == 1211216);
+    if (id != 1211216)
+      throw std::runtime_error("Bad signature in PETSc Matrix file");
 
     int nrows = int_data[1];
     int ncols = int_data[2];

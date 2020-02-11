@@ -189,14 +189,16 @@ int main(int argc, char** argv)
   }
 
   sparse_matrix_t A_mkl;
-  sparse_status_t status = mkl_sparse_d_create_csr(
-      &A_mkl, SPARSE_INDEX_BASE_ZERO, M, nc_local, A.outerIndexPtr(),
-      A.outerIndexPtr() + 1, columns.data(), A.valuePtr());
+  sparse_status_t status = mkl_sparse_d_create_csr(&A_mkl, SPARSE_INDEX_BASE_ZERO, M, nc_local, A.outerIndexPtr(),
+                                                   A.outerIndexPtr() + 1, columns.data(), A.valuePtr());
   assert(status == SPARSE_STATUS_SUCCESS);
 
   status = mkl_sparse_optimize(A_mkl);
   assert(status == SPARSE_STATUS_SUCCESS);
 
+  if (status != SPARSE_STATUS_SUCCESS)
+    throw std::runtime_error("Could not create MKL matrix");
+  
   struct matrix_descr mat_desc;
   mat_desc.type = SPARSE_MATRIX_TYPE_GENERAL;
   mat_desc.diag = SPARSE_DIAG_NON_UNIT;
