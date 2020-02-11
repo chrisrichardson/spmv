@@ -3,32 +3,41 @@
 
 #include "L2GMap.h"
 #include <algorithm>
+#include <iostream>
 #include <set>
 #include <vector>
 
 //-----------------------------------------------------------------------------
 L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
                const std::vector<index_type>& ghosts)
-    : _ranges(ranges)
+    : _ranges(ranges), _ghosts(ghosts)
 {
   int mpi_size;
   MPI_Comm_size(comm, &mpi_size);
   int mpi_rank;
   MPI_Comm_rank(comm, &mpi_rank);
 
-  const index_type r0 = _ranges[mpi_rank];
-  const index_type r1 = _ranges[mpi_rank + 1];
-  const index_type local_size = r1 - r0;
+  _r0 = _ranges[mpi_rank];
+  _r1 = _ranges[mpi_rank + 1];
+  const index_type local_size = _r1 - _r0;
 
-  // Get count on each process
+  // Make sure ghosts are in order
+  std::sort(_ghosts.begin(), _ghosts.end());
+
+  // Get count on each process and local index
   std::vector<std::int32_t> ghost_count(mpi_size);
-  for (index_type idx : ghosts)
+  for (std::size_t i = 0; i < _ghosts.size(); ++i)
   {
-    if (idx >= r0 and idx < r1)
+    const index_type idx = _ghosts[i];
+
+    if (idx >= _r0 and idx < _r1)
       throw std::runtime_error("Ghost index in local range");
-    auto it = std::lower_bound(ranges.begin(), ranges.end(), idx);
+    _global_to_local.insert({idx, local_size + i});
+
+    auto it = std::upper_bound(ranges.begin(), ranges.end(), idx);
     assert(it != ranges.end());
-    ++ghost_count[*it];
+    const int p = it - ranges.begin() - 1;
+    ++ghost_count[p];
   }
 
   std::vector<int> neighbours;
@@ -43,7 +52,6 @@ L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
   }
 
   const int neighbour_size = neighbours.size();
-
   MPI_Dist_graph_create_adjacent(comm, neighbours.size(), neighbours.data(),
                                  MPI_UNWEIGHTED, neighbours.size(),
                                  neighbours.data(), MPI_UNWEIGHTED,
@@ -69,25 +77,26 @@ L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
 
   // Send global indices to remote processes that own them
   int err = MPI_Neighbor_alltoallv(
-      ghosts.data(), _send_count.data(), _send_offset.data(), MPI_INT,
+      _ghosts.data(), _send_count.data(), _send_offset.data(), MPI_INT,
       _indexbuf.data(), _recv_count.data(), _recv_offset.data(), MPI_INT,
       _neighbour_comm);
   if (err != MPI_SUCCESS)
     throw std::runtime_error("MPI failure");
 
-  // Should be in own range, subtract off r0
+  // Should be in own range, subtract off _r0
   for (index_type& i : _indexbuf)
   {
-    assert(i >= r0 and i < r1);
-    i -= r0;
+    assert(i >= _r0 and i < _r1);
+    i -= _r0;
   }
 
-  // Add local_range onto _send_offset
+  // Add local_range onto _send_offset (ghosts will be at end of range)
   for (index_type& s : _send_offset)
     s += local_size;
 }
 //-----------------------------------------------------------------------------
 L2GMap::~L2GMap() { MPI_Comm_free(&_neighbour_comm); }
+//-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 void L2GMap::update(double* vec_data)
 {
@@ -121,3 +130,14 @@ void L2GMap::reverse_update(double* vec_data)
     vec_data[_indexbuf[i]] += _databuf[i];
 }
 //-----------------------------------------------------------------------------
+index_type L2GMap::global_to_local(index_type i)
+{
+  if (i >= _r0 and i < _r1)
+    return (i - _r0);
+  else
+  {
+    auto it = _global_to_local.find(i);
+    assert(it != _global_to_local.end());
+    return it->second;
+  }
+}
