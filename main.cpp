@@ -263,17 +263,30 @@ int main(int argc, char** argv)
   MPI_Allreduce(&pnorm, &pnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
   if (mpi_rank == 0)
-  {
     std::cout << "\nTimings (" << mpi_size
               << ")\n----------------------------\n";
-    std::chrono::duration<double> total_time;
-    for (auto q : timings)
+
+  std::chrono::duration<double> total_time = std::chrono::duration<double>::zero();
+  for (auto q : timings)
+  {
+    double q_local = q.second.count(), q_max, q_min;
+    MPI_Reduce(&q_local, &q_max, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&q_local, &q_min, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+
+    if (mpi_rank == 0)
     {
       std::string pad(16 - q.first.size(), ' ');
-      std::cout << "[" << q.first << "]" << pad << q.second.count() << "\n";
-      total_time += q.second;
+      std::cout << "[" << q.first << "]" << pad << q_min << '\t' << q_max << "\n";
     }
-    std::cout << "[Total]           " << total_time.count() << "\n";
+    total_time += q.second;
+  }
+
+  double total_local = total_time.count(), total_min, total_max;
+  MPI_Reduce(&total_local, &total_max, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+  MPI_Reduce(&total_local, &total_min, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+  if (mpi_rank == 0)
+  {
+    std::cout << "[Total]           " << total_min << '\t' << total_max << "\n";
     std::cout << "----------------------------\n";
     std::cout << "norm = " << pnorm_sum << "\n";
   }
