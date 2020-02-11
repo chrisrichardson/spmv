@@ -13,7 +13,6 @@
 #endif
 
 #include "CreateA.h"
-#include "DistributedVector.h"
 #include "read_petsc.h"
 
 //-----------------------------------------------------------------------------
