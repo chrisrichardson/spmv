@@ -266,7 +266,7 @@ int main(int argc, char** argv)
     std::cout << "\nTimings (" << mpi_size
               << ")\n----------------------------\n";
 
-  std::chrono::duration<double> total_time;
+  std::chrono::duration<double> total_time = std::chrono::duration<double>::zero();
   for (auto q : timings)
   {
     double q_local = q.second.count(), q_max, q_min;
