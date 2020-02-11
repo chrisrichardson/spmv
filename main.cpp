@@ -1,12 +1,12 @@
 // Copyright (C) 2018 Chris Richardson (chris@bpi.cam.ac.uk)
 // SPDX-License-Identifier:    LGPL-3.0-or-later
 
+#include <Eigen/Dense>
+#include <Eigen/Sparse>
 #include <chrono>
 #include <iostream>
 #include <memory>
 #include <mpi.h>
-#include <Eigen/Dense>
-#include <Eigen/Sparse>
 
 #ifdef EIGEN_USE_MKL_ALL
 #include <mkl.h>
@@ -197,13 +197,13 @@ int main(int argc, char** argv)
 
 #endif
 
-    auto timer_end = std::chrono::system_clock::now();
-    timings["0.MatCreate"] += (timer_end - timer_start);
+  auto timer_end = std::chrono::system_clock::now();
+  timings["0.MatCreate"] += (timer_end - timer_start);
 
-    timer_start = std::chrono::system_clock::now();
+  timer_start = std::chrono::system_clock::now();
 
   if (mpi_rank == 0)
-    std::cout << "Creating vector\n";
+    std::cout << "Creating vector of size " << N << "\n";
 
   // Make distributed vector - this is the only
   // one that needs to be 'sparse'
@@ -260,12 +260,13 @@ int main(int argc, char** argv)
 
   if (mpi_rank == 0)
   {
-    std::cout << "\nTimings (" << mpi_size << ")\n----------------------------\n";
+    std::cout << "\nTimings (" << mpi_size
+              << ")\n----------------------------\n";
     std::chrono::duration<double> total_time;
     for (auto q : timings)
-    {  
+    {
       std::string pad(16 - q.first.size(), ' ');
-      std::cout << "[" << q.first << "]"  << pad << q.second.count() << "\n";
+      std::cout << "[" << q.first << "]" << pad << q.second.count() << "\n";
       total_time += q.second;
     }
     std::cout << "[Total]           " << total_time.count() << "\n";
