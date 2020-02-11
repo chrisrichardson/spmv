@@ -20,26 +20,31 @@ public:
   // Destructor destroys neighbour comm
   ~L2GMap();
 
-  // Total size (including ghosts)
-  int size()
-  {
-    return (_r1 - _r0 + _ghosts.size());
-  }
+  // Total local size (including ghosts)
+  std::int32_t local_size() const;
+
+  // Global size
+  std::int64_t global_size() const;
+
+  // Global offset on this process
+  std::int64_t global_offset() const;
 
   // Convert a global index to local
-  index_type global_to_local(index_type i);
+  index_type global_to_local(index_type i) const;
 
   // Ghost update - should be done each time *before* matvec
-  void update(double* vec_data);
+  void update(double* vec_data) const;
 
   // Update the other way, ghost -> local.
-  void reverse_update(double* vec_data);
+  void reverse_update(double* vec_data) const;
 
 private:
-
-  // Ownership ranges for all processes
+  // Ownership ranges for all processes on global comm
   std::vector<index_type> _ranges;
-  index_type _r0, _r1;
+
+  // Cached mpi rank on global comm
+  // Local range is _ranges[_mpi_rank] -> _ranges[_mpi_rank + 1]
+  std::int32_t _mpi_rank;
 
   // Forward and reverse maps for ghosts
   std::map<index_type, index_type> _global_to_local;
@@ -53,7 +58,9 @@ private:
   std::vector<index_type> _recv_offset;
 
   // Temporary data buffer for sending/receiving in local range
-  std::vector<double> _databuf;
+  // This is just scratch space, so marking as mutable
+  // Or could change update to be non-const
+  mutable std::vector<double> _databuf;
 
   MPI_Comm _neighbour_comm;
 };

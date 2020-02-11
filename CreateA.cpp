@@ -94,11 +94,11 @@ create_A(MPI_Comm comm, int N)
   index_type* Ainner = A.innerIndexPtr();
   double* Aval = A.valuePtr();
 
-  for (int row = 0; row < M; ++row)
+  for (index_type row = 0; row < M; ++row)
   {
-    for (int j = Aouter[row]; j < Aouter[row + 1]; ++j)
+    for (index_type j = Aouter[row]; j < Aouter[row + 1]; ++j)
     {
-      int col = l2g->global_to_local(Ainner[j]);
+      index_type col = l2g->global_to_local(Ainner[j]);
       double val = Aval[j];
       vals.push_back(Eigen::Triplet<double>(row, col, val));
     }

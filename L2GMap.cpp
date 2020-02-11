@@ -14,12 +14,11 @@ L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
 {
   int mpi_size;
   MPI_Comm_size(comm, &mpi_size);
-  int mpi_rank;
-  MPI_Comm_rank(comm, &mpi_rank);
+  MPI_Comm_rank(comm, &_mpi_rank);
 
-  _r0 = _ranges[mpi_rank];
-  _r1 = _ranges[mpi_rank + 1];
-  const index_type local_size = _r1 - _r0;
+  const std::int64_t r0 = _ranges[_mpi_rank];
+  const std::int64_t r1 = _ranges[_mpi_rank + 1];
+  const index_type local_size = r1 - r0;
 
   // Make sure ghosts are in order
   std::sort(_ghosts.begin(), _ghosts.end());
@@ -30,13 +29,13 @@ L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
   {
     const index_type idx = _ghosts[i];
 
-    if (idx >= _r0 and idx < _r1)
+    if (idx >= r0 and idx < r1)
       throw std::runtime_error("Ghost index in local range");
     _global_to_local.insert({idx, local_size + i});
 
-    auto it = std::upper_bound(ranges.begin(), ranges.end(), idx);
-    assert(it != ranges.end());
-    const int p = it - ranges.begin() - 1;
+    auto it = std::upper_bound(_ranges.begin(), _ranges.end(), idx);
+    assert(it != _ranges.end());
+    const int p = it - _ranges.begin() - 1;
     ++ghost_count[p];
   }
 
@@ -86,8 +85,8 @@ L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
   // Should be in own range, subtract off _r0
   for (index_type& i : _indexbuf)
   {
-    assert(i >= _r0 and i < _r1);
-    i -= _r0;
+    assert(i >= r0 and i < r1);
+    i -= r0;
   }
 
   // Add local_range onto _send_offset (ghosts will be at end of range)
@@ -98,7 +97,7 @@ L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
 L2GMap::~L2GMap() { MPI_Comm_free(&_neighbour_comm); }
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-void L2GMap::update(double* vec_data)
+void L2GMap::update(double* vec_data) const
 {
   // Get data from local indices to send to other processes, landing in their
   // ghost region
@@ -115,7 +114,7 @@ void L2GMap::update(double* vec_data)
     throw std::runtime_error("MPI failure");
 }
 //-----------------------------------------------------------------------------
-void L2GMap::reverse_update(double* vec_data)
+void L2GMap::reverse_update(double* vec_data) const
 {
   // Send values from ghost region of vector to remotes
   // accumulating in local vector.
@@ -130,10 +129,13 @@ void L2GMap::reverse_update(double* vec_data)
     vec_data[_indexbuf[i]] += _databuf[i];
 }
 //-----------------------------------------------------------------------------
-index_type L2GMap::global_to_local(index_type i)
+index_type L2GMap::global_to_local(index_type i) const
 {
-  if (i >= _r0 and i < _r1)
-    return (i - _r0);
+  const std::int64_t r0 = _ranges[_mpi_rank];
+  const std::int64_t r1 = _ranges[_mpi_rank + 1];
+
+  if (i >= r0 and i < r1)
+    return (i - r0);
   else
   {
     auto it = _global_to_local.find(i);
@@ -141,3 +143,13 @@ index_type L2GMap::global_to_local(index_type i)
     return it->second;
   }
 }
+//-----------------------------------------------------------------------------
+std::int32_t L2GMap::local_size() const
+{
+  return (_ranges[_mpi_rank + 1] - _ranges[_mpi_rank] + _ghosts.size());
+}
+//-----------------------------------------------------------------------------
+std::int64_t L2GMap::global_size() const { return _ranges.back(); }
+//-----------------------------------------------------------------------------
+std::int64_t L2GMap::global_offset() const { return _ranges[_mpi_rank]; }
+//-----------------------------------------------------------------------------

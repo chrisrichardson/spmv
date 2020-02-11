@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Chris Richardson (chris@bpi.cam.ac.uk)
+// Copyright (C) 2018-2020 Chris Richardson (chris@bpi.cam.ac.uk)
 // SPDX-License-Identifier:    LGPL-3.0-or-later
 
 #include <Eigen/Dense>
@@ -36,18 +36,9 @@ int main(int argc, char** argv)
   // Or read file created with "-ksp_view_mat binary" option
   //  auto A = read_petsc_binary(MPI_COMM_WORLD, "binaryoutput");
 
-  // Get local range from number of rows in A
-  std::vector<int> nrows_all(mpi_size);
-  std::vector<index_type> ranges = {0};
-  int nrows = A.rows();
-  MPI_Allgather(&nrows, 1, MPI_INT, nrows_all.data(), 1, MPI_INT,
-                MPI_COMM_WORLD);
-  for (int i = 0; i < mpi_size; ++i)
-    ranges.push_back(ranges.back() + nrows_all[i]);
-
-  int N = ranges.back();
-  int M = A.rows();
-  int r0 = ranges[mpi_rank];
+  // Get local and global sizes
+  std::int64_t M = A.rows();
+  std::int64_t N = l2g->global_size();
 
 #ifdef EIGEN_USE_MKL_ALL
   sparse_matrix_t A_mkl;
@@ -65,7 +56,6 @@ int main(int argc, char** argv)
   struct matrix_descr mat_desc;
   mat_desc.type = SPARSE_MATRIX_TYPE_GENERAL;
   mat_desc.diag = SPARSE_DIAG_NON_UNIT;
-
 #endif
 
   auto timer_end = std::chrono::system_clock::now();
@@ -77,9 +67,10 @@ int main(int argc, char** argv)
     std::cout << "Creating vector of size " << N << "\n";
 
   // Vector with extra space for ghosts at end
-  Eigen::VectorXd psp(l2g->size());
+  Eigen::VectorXd psp(l2g->local_size());
 
   // Set up values in local range
+  int r0 = l2g->global_offset();
   for (int i = 0; i < M; ++i)
   {
     double z = (double)(i + r0) / double(N);
