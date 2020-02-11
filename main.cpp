@@ -178,9 +178,9 @@ int main(int argc, char** argv)
     global_to_local.insert({global_index, 0});
   }
 
-  int lc = 0;
+  int nc_local = 0;
   for (auto& q : global_to_local)
-    q.second = lc++;
+    q.second = nc_local++;
 
   for (std::size_t i = 0; i < columns.size(); ++i)
   {
@@ -190,7 +190,7 @@ int main(int argc, char** argv)
 
   sparse_matrix_t A_mkl;
   sparse_status_t status = mkl_sparse_d_create_csr(
-      &A_mkl, SPARSE_INDEX_BASE_ZERO, M, N, A.outerIndexPtr(),
+      &A_mkl, SPARSE_INDEX_BASE_ZERO, M, nc_local, A.outerIndexPtr(),
       A.outerIndexPtr() + 1, columns.data(), A.valuePtr());
   assert(status == SPARSE_STATUS_SUCCESS);
 
