@@ -6,6 +6,7 @@
 #include <cassert>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <vector>
 
 // Divide size into N ~equal chunks
@@ -125,11 +126,17 @@ read_petsc_binary(MPI_Comm comm, std::string filename)
       {
         std::swap(*ptr, *(ptr + 3));
         std::swap(*(ptr + 1), *(ptr + 2));
-        if (col_indices.insert({*((std::int32_t*)ptr), c}).second)
-          ++c;
+        col_indices.insert({*((std::int32_t*)ptr), -1});
         ptr += 4;
       }
     }
+    // Ensure they are labelled in ascending order
+    for (auto& q : col_indices)
+      if (q.second == -1)
+      {
+        q.second = c;
+        ++c;
+      }
 
     A.resize(nrows_local, col_indices.size());
 

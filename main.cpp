@@ -81,7 +81,7 @@ int main(int argc, char** argv)
   timings["1.VecCreate"] += (timer_end - timer_start);
 
   // Apply matrix a few times
-  int n_apply = 10000;
+  int n_apply = 1000;
   if (mpi_rank == 0)
     std::cout << "Applying matrix " << n_apply << " times\n";
 
