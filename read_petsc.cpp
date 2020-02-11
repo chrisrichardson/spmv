@@ -28,7 +28,7 @@ std::vector<std::int64_t> owner_ranges(int size, std::int64_t N)
 }
 //-----------------------------------------------------------------------------
 Eigen::SparseMatrix<double, Eigen::RowMajor>
-read_petsc_binary(MPI_Comm comm, std::string filename)
+read_petsc_binary_matrix(MPI_Comm comm, std::string filename)
 {
   Eigen::SparseMatrix<double, Eigen::RowMajor> A;
 
@@ -140,3 +140,75 @@ read_petsc_binary(MPI_Comm comm, std::string filename)
   A.makeCompressed();
   return A;
 }
+//-----------------------------------------------------------------------------
+Eigen::VectorXd
+read_petsc_binary_vector(MPI_Comm comm, std::string filename)
+{
+  Eigen::VectorXd vec;
+
+  int mpi_rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+  int mpi_size;
+  MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+
+  std::ifstream file(filename.c_str(),
+                     std::ios::in | std::ios::binary | std::ios::ate);
+  if (file.is_open())
+  {
+    // Get first 2 ints from file
+    std::vector<char> memblock(8);
+    file.seekg(0, std::ios::beg);
+    file.read(memblock.data(), 8);
+
+    char* ptr = memblock.data();
+    for (int i = 0; i < 2; ++i)
+    {
+      std::swap(*ptr, *(ptr + 3));
+      std::swap(*(ptr + 1), *(ptr + 2));
+      ptr += 4;
+    }
+
+    std::int32_t* int_data = (std::int32_t*)(memblock.data());
+    int id = int_data[0];
+    if (id != 1211214)
+      throw std::runtime_error("Bad signature in PETSc Vector file");
+
+    int nrows = int_data[1];
+    std::vector<std::int64_t> ranges = owner_ranges(mpi_size, nrows);
+
+    if (mpi_rank == 0)
+      std::cout << "Read vector file: " << filename << ": " << nrows << "\n";
+
+    std::int64_t nrows_local = ranges[mpi_rank + 1] - ranges[mpi_rank];
+
+    vec.resize(nrows_local);
+
+    std::streampos value_data_pos
+        = file.tellg() + (std::streampos)(ranges[mpi_rank] * 8);
+
+    // Read values
+    std::vector<char> valuedata(nrows_local * 8);
+    file.seekg(value_data_pos, std::ios::beg);
+    file.read(valuedata.data(), nrows_local * 8);
+    file.close();
+
+    // Pointer to values
+    char* vptr = valuedata.data();
+
+    for (std::int64_t row = ranges[mpi_rank]; row < ranges[mpi_rank + 1]; ++row)
+    {
+        std::swap(*vptr, *(vptr + 7));
+        std::swap(*(vptr + 1), *(vptr + 6));
+        std::swap(*(vptr + 2), *(vptr + 5));
+        std::swap(*(vptr + 3), *(vptr + 4));
+        double val = *((double*)vptr);
+        vptr += 8;
+        vec[row - ranges[mpi_rank]] = val;
+    }
+  }
+  else
+    throw std::runtime_error("Could not open file");
+
+  return vec;
+}
+//-----------------------------------------------------------------------------

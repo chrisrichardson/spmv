@@ -32,10 +32,10 @@ int main(int argc, char** argv)
   auto timer_start = std::chrono::system_clock::now();
 
   // Either create a simple 1D stencil
-  auto A = create_A(MPI_COMM_WORLD, 50000 * mpi_size);
+  // auto A = create_A(MPI_COMM_WORLD, 50000 * mpi_size);
 
   // Or read file created with "-ksp_view_mat binary" option
-  //  auto A = read_petsc_binary(MPI_COMM_WORLD, "binaryoutput");
+  auto A = read_petsc_binary_matrix(MPI_COMM_WORLD, "binaryoutput");
 
   // Get local range from number of rows in A
   std::vector<int> nrows_all(mpi_size);
@@ -95,6 +95,8 @@ int main(int argc, char** argv)
   if (mpi_rank == 0)
     std::cout << "Creating vector of size " << N << "\n";
 
+  //  Eigen::VectorXd rhs = read_petsc_binary_vector(MPI_COMM_WORLD, "binaryoutput");
+  
   // Make distributed vector - this is the only
   // one that needs to be 'sparse'
   auto psp = std::make_shared<DistributedVector>(MPI_COMM_WORLD, A);
@@ -111,7 +113,7 @@ int main(int argc, char** argv)
   timings["1.VecCreate"] += (timer_end - timer_start);
 
   // Apply matrix a few times
-  int n_apply = 10000;
+  int n_apply = 1000;
   if (mpi_rank == 0)
     std::cout << "Applying matrix " << n_apply << " times\n";
 
