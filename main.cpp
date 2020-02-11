@@ -31,10 +31,10 @@ int main(int argc, char** argv)
   auto timer_start = std::chrono::system_clock::now();
 
   // Either create a simple 1D stencil
-  auto [A, l2g] = create_A(MPI_COMM_WORLD, 50000);
+  // auto [A, l2g] = create_A(MPI_COMM_WORLD, 50000);
 
   // Or read file created with "-ksp_view_mat binary" option
-  //  auto A = read_petsc_binary(MPI_COMM_WORLD, "binaryoutput");
+  auto [A, l2g] = read_petsc_binary(MPI_COMM_WORLD, "binaryoutput");
 
   // Get local and global sizes
   std::int64_t M = A.rows();

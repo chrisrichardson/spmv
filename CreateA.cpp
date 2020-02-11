@@ -25,7 +25,7 @@ std::vector<index_type> owner_ranges(std::int64_t size, index_type N)
 
   return ranges;
 }
-
+//-----------------------------------------------------------------------------
 std::tuple<Eigen::SparseMatrix<double, Eigen::RowMajor>,
            std::shared_ptr<L2GMap>>
 create_A(MPI_Comm comm, int N)
