@@ -67,7 +67,7 @@ read_petsc_binary(MPI_Comm comm, std::string filename)
       std::cout << "Read file: " << filename << ": " << nrows << "x" << ncols
                 << " = " << nnz_tot << "\n";
 
-    int nrows_local = ranges[mpi_rank + 1] - ranges[mpi_rank];
+    std::int64_t nrows_local = ranges[mpi_rank + 1] - ranges[mpi_rank];
 
     A.resize(nrows_local, ncols);
 
@@ -76,7 +76,7 @@ read_petsc_binary(MPI_Comm comm, std::string filename)
     ptr = memblock.data();
     file.read(memblock.data(), nrows * 4);
     std::vector<std::int32_t> nnz(nrows);
-    int nnz_sum = 0;
+    std::int64_t nnz_sum = 0;
     for (int i = 0; i < nrows; ++i)
     {
       std::swap(*ptr, *(ptr + 3));
@@ -88,11 +88,11 @@ read_petsc_binary(MPI_Comm comm, std::string filename)
     assert(nnz_sum == nnz_tot);
 
     // Get offset and size for data
-    int nnz_offset = 0;
-    int nnz_size = 0;
-    for (int i = 0; i < ranges[mpi_rank]; ++i)
+    std::int64_t nnz_offset = 0;
+    std::int64_t nnz_size = 0;
+    for (std::int64_t i = 0; i < ranges[mpi_rank]; ++i)
       nnz_offset += nnz[i];
-    for (int i = ranges[mpi_rank]; i < ranges[mpi_rank + 1]; ++i)
+    for (std::int64_t i = ranges[mpi_rank]; i < ranges[mpi_rank + 1]; ++i)
       nnz_size += nnz[i];
 
     std::streampos value_data_pos
@@ -113,9 +113,9 @@ read_petsc_binary(MPI_Comm comm, std::string filename)
     // Pointer to values
     char* vptr = valuedata.data();
 
-    for (int row = ranges[mpi_rank]; row < ranges[mpi_rank + 1]; ++row)
+    for (std::int64_t row = ranges[mpi_rank]; row < ranges[mpi_rank + 1]; ++row)
     {
-      for (int j = 0; j < nnz[row]; ++j)
+      for (std::int64_t j = 0; j < nnz[row]; ++j)
       {
         std::swap(*ptr, *(ptr + 3));
         std::swap(*(ptr + 1), *(ptr + 2));

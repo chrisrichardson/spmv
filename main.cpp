@@ -64,9 +64,15 @@ Eigen::SparseMatrix<double, Eigen::RowMajor> create_A(MPI_Comm comm, int N)
     int c0 = r0 + i;
     // Special case for very first and last global rows
     if (c0 == 0)
-      A.insert(i, c0) = 1.0;
+    {
+      A.insert(i, c0) = 1.0 - gamma;
+      A.insert(i, c0 + 1) = gamma;
+    }
     else if (c0 == (N - 1))
-      A.insert(i, c0) = 1.0;
+    {
+      A.insert(i, c0 - 1) = gamma;
+      A.insert(i, c0) = 1.0 - gamma;
+    }
     else
     {
       A.insert(i, c0 - 1) = gamma;
@@ -147,7 +153,7 @@ int main(int argc, char** argv)
   auto A = create_A(MPI_COMM_WORLD, 50000 * mpi_size);
 
   // Or read file created with "-ksp_view_mat binary" option
-  // auto A = read_petsc_binary(MPI_COMM_WORLD, "binaryoutput");
+  //  auto A = read_petsc_binary(MPI_COMM_WORLD, "binaryoutput");
 
   // Get local range from number of rows in A
   std::vector<int> nrows_all(mpi_size);
@@ -198,7 +204,7 @@ int main(int argc, char** argv)
 #endif
 
   auto timer_end = std::chrono::system_clock::now();
-  timings["0.MatCreate"] += (timer_end - timer_start);
+  //    timings["0.MatCreate"] += (timer_end - timer_start);
 
   timer_start = std::chrono::system_clock::now();
 
@@ -241,10 +247,6 @@ int main(int argc, char** argv)
 #else
     q = A * psp->spvec();
 #endif
-    // Putting MPI barrier here, because each SpMV may take different
-    // time on each process, and otherwise, the barrier will occur
-    // in ghost update.
-    MPI_Barrier(MPI_COMM_WORLD);
     timer_end = std::chrono::system_clock::now();
     timings["3.SpMV"] += (timer_end - timer_start);
 

@@ -1,6 +1,9 @@
 # Require CMake 3.5
 cmake_minimum_required(VERSION 3.5)
 
+# Choose Release or Debug
+set(CMAKE_BUILD_TYPE Release)
+
 # Use C++11
 set(CMAKE_CXX_STANDARD 11)
 
@@ -13,7 +16,7 @@ project(${PROJECT_NAME})
 # Set CMake behavior
 cmake_policy(SET CMP0004 NEW)
 
-set(CMAKE_CXX_FLAGS "-g -O2 -Werror=all")
+set(CMAKE_CXX_FLAGS "-Werror=all")
 
 find_package(MPI REQUIRED)
 

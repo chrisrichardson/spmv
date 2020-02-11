@@ -28,6 +28,10 @@ public:
   // Ghost update - should be done each time *before* matvec
   void update();
 
+  // Update the other way, ghost -> local.
+  void reverse_update();
+  
+
 private:
   // Actual data
   Eigen::SparseVector<double> _xsp;
