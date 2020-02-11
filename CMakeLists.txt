@@ -27,7 +27,8 @@ find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR} ${MPI_INCLUDE_PATH})
 
 # Executable
-add_executable(${PROJECT_NAME} main.cpp DistributedVector.cpp read_petsc.cpp L2GMap.cpp)
+add_executable(${PROJECT_NAME} main.cpp DistributedVector.cpp read_petsc.cpp CreateA.cpp L2GMap.cpp)
+
 
 if(BLAS_FOUND)
     target_compile_definitions(${PROJECT_NAME} PUBLIC EIGEN_USE_MKL_ALL)
