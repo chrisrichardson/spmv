@@ -9,11 +9,20 @@ OperatorCUDA::OperatorCUDA(Eigen::SparseMatrix<double, Eigen::RowMajor>& A) {
     if (status != CUSPARSE_STATUS_SUCCESS)
     throw std::runtime_error("Could not initialize cusparse");
 
+    double *val;
+    int *col, *idx;
     //move all the crap to the GPU
-    status = cusparseCreateCsr(&spmat, A.rows(), A.cols(), A.nonZeros(),
-    A.outerIndexPtr(), A.innerIndexPtr(), A.valuePtr(),
-    CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO,
-    CUDA_R_64F);
+    cudaMalloc(&val, A.nonZeros()*sizeof(double));
+    cudaMalloc(&col, (A.rows()+1)*sizeof(int)   );
+    cudaMalloc(&idx, A.nonZeros()*sizeof(int)   );
+
+    cudaMemcpy(val, A.valuePtr(),      A.nonZeros()*sizeof(double), cudaMemcpyHostToDevice);
+    cudaMemcpy(col, A.outerIndexPtr(), (A.rows()+1)*sizeof(int)   , cudaMemcpyHostToDevice);
+    cudaMemcpy(idx, A.innerIndexPtr(), A.nonZeros()*sizeof(int)   , cudaMemcpyHostToDevice);
+
+    status = cusparseCreateCsr(&spmat, A.rows(), A.cols(), A.nonZeros(), col,
+                               idx, val, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
+                               CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F);
     if (status != CUSPARSE_STATUS_SUCCESS)
     throw std::runtime_error("Could not create cusparse CSR matrix");
 
@@ -21,7 +30,7 @@ OperatorCUDA::OperatorCUDA(Eigen::SparseMatrix<double, Eigen::RowMajor>& A) {
     cudaMalloc(&alpha, sizeof(double));
     cudaMalloc(&beta, sizeof(double));
 
-    double alpha_h = 1, beta_h = 1;
+    double alpha_h = 1, beta_h = 0;
     cudaMemcpy(alpha, &alpha_h, sizeof(double), cudaMemcpyHostToDevice);
     cudaMemcpy(beta, &beta_h, sizeof(double), cudaMemcpyHostToDevice);
 
