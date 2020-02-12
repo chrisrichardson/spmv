@@ -11,9 +11,12 @@
 #include "CreateA.h"
 #include "read_petsc.h"
 #include "Operator/Operator.h"
+#include "Operator/Eigen.h"
 #ifdef EIGEN_USE_MKL_ALL
 #include "Operator/MKL.h"
+using MyOperator = OperatorMKL;
 #else
+using MyOperator = OperatorEigen;
 #endif
 
 //-----------------------------------------------------------------------------
@@ -41,7 +44,7 @@ int main(int argc, char** argv)
   std::int64_t M = A.rows();
   std::int64_t N = l2g->global_size();
 
-  std::shared_ptr<Operator> O = std::make_shared<OperatorMKL>(A);
+  std::shared_ptr<Operator> O = std::make_shared<MyOperator>(A);
 
   auto timer_end = std::chrono::system_clock::now();
   //    timings["0.MatCreate"] += (timer_end - timer_start);
