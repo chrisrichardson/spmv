@@ -9,8 +9,6 @@ OperatorCUDA::OperatorCUDA(Eigen::SparseMatrix<double, Eigen::RowMajor>& A) {
   cusparse_CHECK(cusparseCreate(&handle));
   cusparse_CHECK(cusparseSetPointerMode(handle, CUSPARSE_POINTER_MODE_DEVICE));
 
-  double* value;
-  int *inner, *outer;
   // move all the crap to the GPU
   cuda_CHECK(cudaMalloc(&value, A.nonZeros() * sizeof(double)));
   cuda_CHECK(cudaMalloc(&inner, A.nonZeros() * sizeof(int)));
@@ -48,6 +46,14 @@ OperatorCUDA::OperatorCUDA(Eigen::SparseMatrix<double, Eigen::RowMajor>& A) {
 }
 
 OperatorCUDA::~OperatorCUDA() {
+    cudaFree(alpha);
+    cudaFree(beta);
+    cudaFree(scratch);
+    cusparseDestroyDnVec(vecX); cudaFree(xdata);
+    cusparseDestroyDnVec(vecY); cudaFree(ydata);
+    cudaFree(value);
+    cudaFree(inner);
+    cudaFree(outer);
     cusparseDestroySpMat(spmat);
     cusparseDestroy(handle);
 }

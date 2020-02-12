@@ -5,6 +5,9 @@
 class OperatorCUDA : public Operator {
   cusparseHandle_t handle;
   cusparseSpMatDescr_t spmat;
+  double* value;
+  int *inner, *outer;
+
   double *alpha, *beta;
   void *scratch;
 
