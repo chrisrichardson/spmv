@@ -215,7 +215,7 @@ Eigen::VectorXd read_petsc_binary_vector(MPI_Comm comm, std::string filename)
       throw std::runtime_error("Bad signature in PETSc Vector file");
 
     int nrows = int_data[1];
-    std::vector<std::int64_t> ranges = owner_ranges(mpi_size, nrows);
+    std::vector<std::int32_t> ranges = owner_ranges(mpi_size, nrows);
 
     if (mpi_rank == 0)
       std::cout << "Read vector file: " << filename << ": " << nrows << "\n";
