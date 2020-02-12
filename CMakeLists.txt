@@ -11,7 +11,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(PROJECT_NAME eigen_mult)
-project(${PROJECT_NAME})
+project(${PROJECT_NAME} CXX)
 
 # Set CMake behavior
 cmake_policy(SET CMP0004 NEW)
