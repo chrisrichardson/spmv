@@ -12,7 +12,10 @@
 #include "read_petsc.h"
 #include "Operator/Operator.h"
 #include "Operator/Eigen.h"
-#ifdef EIGEN_USE_MKL_ALL
+#ifdef HAVE_CUDA
+#include "Operator/CUDA.h"
+using MyOperator = OperatorCUDA;
+#elif defined(EIGEN_USE_MKL_ALL)
 #include "Operator/MKL.h"
 using MyOperator = OperatorMKL;
 #else

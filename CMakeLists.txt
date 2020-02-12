@@ -15,6 +15,7 @@ project(${PROJECT_NAME} CXX)
 
 # Set CMake behavior
 cmake_policy(SET CMP0004 NEW)
+cmake_policy(SET CMP0076 NEW)
 
 set(CMAKE_CXX_FLAGS "-Werror=all")
 
@@ -37,3 +38,11 @@ endif()
 
 # Target libraries
 target_link_libraries(${PROJECT_NAME} ${MPI_LIBRARIES})
+
+# in cmake 17 this should be find_package(CUDAToolkit)
+find_package(CUDA)
+if (CUDA_FOUND)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC HAVE_CUDA)
+    target_link_libraries(${PROJECT_NAME} ${CUDA_cusparse_LIBRARY})
+    target_sources(${PROJECT_NAME} PUBLIC Operator/CUDA.cpp)
+endif()
