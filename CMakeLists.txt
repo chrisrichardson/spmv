@@ -27,7 +27,7 @@ find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR} ${MPI_INCLUDE_PATH})
 
 # Executable
-add_executable(${PROJECT_NAME} main.cpp read_petsc.cpp CreateA.cpp L2GMap.cpp)
+add_executable(${PROJECT_NAME} main.cpp read_petsc.cpp CreateA.cpp L2GMap.cpp cg.cpp)
 
 
 if(BLAS_FOUND)

@@ -2,6 +2,12 @@
 #include <mpi.h>
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
+#include <memory>
 
-void cg(const Eigen::Ref<const Eigen::SparseMatrix<double, Eigen::RowMajor>>& A,
-        const Eigen::Ref<const Eigen::VectorXd>& b);
+class L2GMap;
+
+// Solve A.x=b iteratively with Conjugate Gradient
+Eigen::VectorXd cg(MPI_Comm comm,
+                   const Eigen::Ref<const Eigen::SparseMatrix<double, Eigen::RowMajor>>& A,
+                   const std::shared_ptr<const L2GMap> l2g,
+                   const Eigen::Ref<const Eigen::VectorXd>& b);
