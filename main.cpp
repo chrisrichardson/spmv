@@ -10,9 +10,9 @@
 
 #include "CreateA.h"
 #include "read_petsc.h"
+#include "Operator/Operator.h"
 #ifdef EIGEN_USE_MKL_ALL
 #include "Operator/MKL.h"
-using Operator = OperatorMKL;
 #else
 #endif
 
@@ -41,7 +41,7 @@ int main(int argc, char** argv)
   std::int64_t M = A.rows();
   std::int64_t N = l2g->global_size();
 
-  auto O = OperatorMKL(A);
+  std::shared_ptr<Operator> O = std::make_shared<OperatorMKL>(A);
 
   auto timer_end = std::chrono::system_clock::now();
   //    timings["0.MatCreate"] += (timer_end - timer_start);
@@ -80,7 +80,7 @@ int main(int argc, char** argv)
     timings["2.SparseUpdate"] += (timer_end - timer_start);
 
     timer_start = std::chrono::system_clock::now();
-    q = O * psp;
+    q = O->apply(psp);
     timer_end = std::chrono::system_clock::now();
     timings["3.SpMV"] += (timer_end - timer_start);
 

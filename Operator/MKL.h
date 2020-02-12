@@ -1,9 +1,8 @@
 #pragma once
+#include "Operator.h"
 #include <mkl.h>
-#include <Eigen/Dense>
-#include <Eigen/Sparse>
 
-class OperatorMKL {
+class OperatorMKL : public Operator {
   sparse_matrix_t A_mkl;
   struct matrix_descr mat_desc;
 
@@ -24,7 +23,7 @@ public:
     mat_desc.diag = SPARSE_DIAG_NON_UNIT;
    }
 
-   Eigen::VectorXd operator*(Eigen::VectorXd &psp) const {
+   Eigen::VectorXd apply(Eigen::VectorXd &psp) const {
     Eigen::VectorXd q(psp.size());
     mkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A_mkl, mat_desc,
                     psp.data(), 0.0, q.data());
