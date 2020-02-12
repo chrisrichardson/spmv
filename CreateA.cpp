@@ -1,5 +1,9 @@
+
 #include "CreateA.h"
-#include "DistributedVector.h" //for index_type
+#include "L2GMap.h"
+#include <Eigen/Sparse>
+#include <memory>
+#include <set>
 
 //-----------------------------------------------------------------------------
 // Divide size into N ~equal chunks
@@ -21,13 +25,15 @@ std::vector<index_type> owner_ranges(std::int64_t size, index_type N)
 
   return ranges;
 }
-
-Eigen::SparseMatrix<double, Eigen::RowMajor> create_A(MPI_Comm comm, int N)
+//-----------------------------------------------------------------------------
+std::tuple<Eigen::SparseMatrix<double, Eigen::RowMajor>,
+           std::shared_ptr<L2GMap>>
+create_A(MPI_Comm comm, int N)
 {
   int mpi_rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+  MPI_Comm_rank(comm, &mpi_rank);
   int mpi_size;
-  MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+  MPI_Comm_size(comm, &mpi_size);
 
   // Make a square Matrix divided evenly across cores
   std::vector<index_type> ranges = owner_ranges(mpi_size, N);
@@ -68,6 +74,37 @@ Eigen::SparseMatrix<double, Eigen::RowMajor> create_A(MPI_Comm comm, int N)
   }
   A.makeCompressed();
 
-  return A;
+  // Remap columns to local indexing
+  std::set<index_type> ghost_indices;
+  std::int32_t nnz = A.outerIndexPtr()[M];
+  for (std::int32_t i = 0; i < nnz; ++i)
+  {
+    index_type global_index = A.innerIndexPtr()[i];
+    if (global_index < r0 or global_index >= r1)
+      ghost_indices.insert(global_index);
+  }
+
+  std::vector<index_type> ghosts(ghost_indices.begin(), ghost_indices.end());
+  auto l2g = std::make_shared<L2GMap>(comm, ranges, ghosts);
+
+  // Rebuild A using local indices
+  Eigen::SparseMatrix<double, Eigen::RowMajor> Alocal(M, M + ghosts.size());
+  std::vector<Eigen::Triplet<double>> vals;
+  index_type* Aouter = A.outerIndexPtr();
+  index_type* Ainner = A.innerIndexPtr();
+  double* Aval = A.valuePtr();
+
+  for (index_type row = 0; row < M; ++row)
+  {
+    for (index_type j = Aouter[row]; j < Aouter[row + 1]; ++j)
+    {
+      index_type col = l2g->global_to_local(Ainner[j]);
+      double val = Aval[j];
+      vals.push_back(Eigen::Triplet<double>(row, col, val));
+    }
+  }
+  Alocal.setFromTriplets(vals.begin(), vals.end());
+
+  return {Alocal, l2g};
 }
 //-----------------------------------------------------------------------------
