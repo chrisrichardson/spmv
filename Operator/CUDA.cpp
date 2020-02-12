@@ -39,7 +39,7 @@ OperatorCUDA::OperatorCUDA(Eigen::SparseMatrix<double, Eigen::RowMajor>& A) {
     cusparseCreateDnVec(&vecX, A.rows(), xdata, CUDA_R_64F);
 
     cudaMalloc(&ydata, A.cols()*sizeof(double));
-    cusparseCreateDnVec(&vecX, A.cols(), ydata, CUDA_R_64F);
+    cusparseCreateDnVec(&vecY, A.cols(), ydata, CUDA_R_64F);
 
     //allocate scratch space
     size_t bufsize;
