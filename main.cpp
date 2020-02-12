@@ -8,12 +8,13 @@
 #include <memory>
 #include <mpi.h>
 
-#ifdef EIGEN_USE_MKL_ALL
-#include <mkl.h>
-#endif
-
 #include "CreateA.h"
 #include "read_petsc.h"
+#ifdef EIGEN_USE_MKL_ALL
+#include "Operator/MKL.h"
+using Operator = OperatorMKL;
+#else
+#endif
 
 //-----------------------------------------------------------------------------
 int main(int argc, char** argv)
@@ -40,23 +41,7 @@ int main(int argc, char** argv)
   std::int64_t M = A.rows();
   std::int64_t N = l2g->global_size();
 
-#ifdef EIGEN_USE_MKL_ALL
-  sparse_matrix_t A_mkl;
-  sparse_status_t status = mkl_sparse_d_create_csr(
-      &A_mkl, SPARSE_INDEX_BASE_ZERO, A.rows(), A.cols(), A.outerIndexPtr(),
-      A.outerIndexPtr() + 1, A.innerIndexPtr(), A.valuePtr());
-  assert(status == SPARSE_STATUS_SUCCESS);
-
-  status = mkl_sparse_optimize(A_mkl);
-  assert(status == SPARSE_STATUS_SUCCESS);
-
-  if (status != SPARSE_STATUS_SUCCESS)
-    throw std::runtime_error("Could not create MKL matrix");
-
-  struct matrix_descr mat_desc;
-  mat_desc.type = SPARSE_MATRIX_TYPE_GENERAL;
-  mat_desc.diag = SPARSE_DIAG_NON_UNIT;
-#endif
+  auto O = OperatorMKL(A);
 
   auto timer_end = std::chrono::system_clock::now();
   //    timings["0.MatCreate"] += (timer_end - timer_start);
@@ -95,12 +80,7 @@ int main(int argc, char** argv)
     timings["2.SparseUpdate"] += (timer_end - timer_start);
 
     timer_start = std::chrono::system_clock::now();
-#ifdef EIGEN_USE_MKL_ALL
-    mkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A_mkl, mat_desc,
-                    psp.data(), 0.0, q.data());
-#else
-    q = A * psp;
-#endif
+    q = O * psp;
     timer_end = std::chrono::system_clock::now();
     timings["3.SpMV"] += (timer_end - timer_start);
 
