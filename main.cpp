@@ -38,7 +38,7 @@ int main(int argc, char** argv)
   auto timer_start = std::chrono::system_clock::now();
 
   // Either create a simple 1D stencil
-  auto [A, l2g] = create_A(MPI_COMM_WORLD, 50000 * mpi_size);
+  auto [A, l2g] = create_A(MPI_COMM_WORLD, 500000);
 
   // Or read file created with "-ksp_view_mat binary" option
   //  auto [A, l2g] = read_petsc_binary(MPI_COMM_WORLD, "binaryoutput");

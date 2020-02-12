@@ -2,52 +2,49 @@
 #include <cuda_runtime.h>
 #include <library_types.h>
 
+#define cuda_CHECK(x)if(x != cudaSuccess) throw std::runtime_error(#x " failed")
+#define cusparse_CHECK(x) if(x != CUSPARSE_STATUS_SUCCESS) throw std::runtime_error(#x " failed")
 
 OperatorCUDA::OperatorCUDA(Eigen::SparseMatrix<double, Eigen::RowMajor>& A) {
-    cusparseStatus_t status;
-    status = cusparseCreate(&handle);
-    if (status != CUSPARSE_STATUS_SUCCESS)
-    throw std::runtime_error("Could not initialize cusparse");
+  cusparse_CHECK(cusparseCreate(&handle));
+  cusparse_CHECK(cusparseSetPointerMode(handle, CUSPARSE_POINTER_MODE_DEVICE));
 
-    double *val;
-    int *col, *idx;
-    //move all the crap to the GPU
-    cudaMalloc(&val, A.nonZeros()*sizeof(double));
-    cudaMalloc(&col, (A.rows()+1)*sizeof(int)   );
-    cudaMalloc(&idx, A.nonZeros()*sizeof(int)   );
+  double* value;
+  int *inner, *outer;
+  // move all the crap to the GPU
+  cuda_CHECK(cudaMalloc(&value, A.nonZeros() * sizeof(double)));
+  cuda_CHECK(cudaMalloc(&inner, A.nonZeros() * sizeof(int)));
+  cuda_CHECK(cudaMalloc(&outer, (A.rows() + 1) * sizeof(int)));
 
-    cudaMemcpy(val, A.valuePtr(),      A.nonZeros()*sizeof(double), cudaMemcpyHostToDevice);
-    cudaMemcpy(col, A.outerIndexPtr(), (A.rows()+1)*sizeof(int)   , cudaMemcpyHostToDevice);
-    cudaMemcpy(idx, A.innerIndexPtr(), A.nonZeros()*sizeof(int)   , cudaMemcpyHostToDevice);
+  cuda_CHECK(cudaMemcpy(value, A.valuePtr(), A.nonZeros() * sizeof(double), cudaMemcpyHostToDevice));
+  cuda_CHECK(cudaMemcpy(inner, A.innerIndexPtr(), A.nonZeros() * sizeof(int), cudaMemcpyHostToDevice));
+  cuda_CHECK(cudaMemcpy(outer, A.outerIndexPtr(), (A.rows() + 1) * sizeof(int), cudaMemcpyHostToDevice));
 
-    status = cusparseCreateCsr(&spmat, A.rows(), A.cols(), A.nonZeros(), col,
-                               idx, val, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
-                               CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F);
-    if (status != CUSPARSE_STATUS_SUCCESS)
-    throw std::runtime_error("Could not create cusparse CSR matrix");
+  cusparse_CHECK(cusparseCreateCsr(&spmat, A.rows(), A.cols(), A.nonZeros(),
+                                   outer, inner, value, CUSPARSE_INDEX_32I,
+                                   CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO,
+                                   CUDA_R_64F));
+  // move constants????
+  cuda_CHECK(cudaMalloc(&alpha, sizeof(double)));
+  cuda_CHECK(cudaMalloc(&beta, sizeof(double)));
 
-    //move constants????
-    cudaMalloc(&alpha, sizeof(double));
-    cudaMalloc(&beta, sizeof(double));
+  double alpha_h = 1, beta_h = 0;
+  cuda_CHECK(cudaMemcpy(alpha, &alpha_h, sizeof(double), cudaMemcpyHostToDevice));
+  cuda_CHECK(cudaMemcpy(beta, &beta_h, sizeof(double), cudaMemcpyHostToDevice));
 
-    double alpha_h = 1, beta_h = 0;
-    cudaMemcpy(alpha, &alpha_h, sizeof(double), cudaMemcpyHostToDevice);
-    cudaMemcpy(beta, &beta_h, sizeof(double), cudaMemcpyHostToDevice);
+  // create vector descriptors
+  cuda_CHECK(cudaMalloc(&xdata, A.rows() * sizeof(double)));
+  cusparse_CHECK(cusparseCreateDnVec(&vecX, A.rows(), xdata, CUDA_R_64F));
 
-    //create vector descriptors
-    cudaMalloc(&xdata, A.rows()*sizeof(double));
-    cusparseCreateDnVec(&vecX, A.rows(), xdata, CUDA_R_64F);
+  cuda_CHECK(cudaMalloc(&ydata, A.cols() * sizeof(double)));
+  cusparse_CHECK(cusparseCreateDnVec(&vecY, A.cols(), ydata, CUDA_R_64F));
 
-    cudaMalloc(&ydata, A.cols()*sizeof(double));
-    cusparseCreateDnVec(&vecY, A.cols(), ydata, CUDA_R_64F);
-
-    //allocate scratch space
-    size_t bufsize;
-    status = cusparseSpMV_bufferSize(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
-    alpha, spmat, vecX, beta, vecY, CUDA_R_64F, CUSPARSE_MV_ALG_DEFAULT, &bufsize);
-    if (status != CUSPARSE_STATUS_SUCCESS)
-    throw std::runtime_error("Could not get cusparse SpMV buffer size");
-    cudaMalloc(&scratch, bufsize);
+  // allocate scratch space
+  size_t bufsize;
+  cusparse_CHECK(cusparseSpMV_bufferSize(handle, CUSPARSE_OPERATION_NON_TRANSPOSE, alpha,
+                                spmat, vecX, beta, vecY, CUDA_R_64F,
+                                CUSPARSE_MV_ALG_DEFAULT, &bufsize));
+  cuda_CHECK(cudaMalloc(&scratch, bufsize));
 }
 
 OperatorCUDA::~OperatorCUDA() {
@@ -56,16 +53,13 @@ OperatorCUDA::~OperatorCUDA() {
 }
 
 Eigen::VectorXd OperatorCUDA::apply(Eigen::VectorXd &psp) const {
-    cudaMemcpy(ydata, psp.data(), psp.size()*sizeof(double), cudaMemcpyHostToDevice);
+    cuda_CHECK(cudaMemcpy(ydata, psp.data(), psp.size()*sizeof(double), cudaMemcpyHostToDevice));
 
-    cusparseStatus_t status;
-    status = cusparseSpMV(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
+    cusparse_CHECK(cusparseSpMV(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
         alpha, spmat, vecX, beta, vecY, CUDA_R_64F, 
-        CUSPARSE_MV_ALG_DEFAULT, scratch);
-    if (status != CUSPARSE_STATUS_SUCCESS)
-        throw std::runtime_error("Could not perform cusparse SpMV");
+        CUSPARSE_MV_ALG_DEFAULT, scratch));
 
     Eigen::VectorXd q(psp.size());
-    cudaMemcpy(q.data(), ydata, q.size()*sizeof(double), cudaMemcpyDeviceToHost);
+    cuda_CHECK(cudaMemcpy(q.data(), ydata, q.size()*sizeof(double), cudaMemcpyDeviceToHost));
     return q;
 }
