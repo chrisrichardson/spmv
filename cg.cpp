@@ -10,24 +10,31 @@ cg(MPI_Comm comm,
    const std::shared_ptr<const L2GMap> l2g,
    const Eigen::Ref<const Eigen::VectorXd>& b)
 {
-  int M = A.rows();
+  int mpi_rank;
+  MPI_Comm_rank(comm, &mpi_rank);
 
-  Eigen::VectorXd psp(l2g->local_size());
+  int M = A.rows();
 
   // Residual vector
   Eigen::VectorXd r(M);
-  r = b;
+  Eigen::VectorXd psp(l2g->local_size());
+  psp.head(M) = b;
+  l2g->update(psp.data());
+  r = b - A * psp;
+
   // Assign to dense part of sparse vector
   psp.head(M) = r;
-  Eigen::VectorXd y(M);
-  Eigen::VectorXd x(M);
 
   double rnorm = r.squaredNorm();
-  double rnorm_sum1;
-  MPI_Allreduce(&rnorm, &rnorm_sum1, 1, MPI_DOUBLE, MPI_SUM, comm);
+  double rnorm_old;
+  MPI_Allreduce(&rnorm, &rnorm_old, 1, MPI_DOUBLE, MPI_SUM, comm);
 
   // Iterations of CG
-  for (int k = 0; k < 500; ++k)
+  Eigen::VectorXd y(M);
+  Eigen::VectorXd x(M);
+  x.setZero();
+
+  for (int k = 0; k < 10000; ++k)
   {
     // y = A.p
     l2g->update(psp.data());
@@ -38,20 +45,25 @@ cg(MPI_Comm comm,
     double pdoty_sum;
     MPI_Allreduce(&pdoty, &pdoty_sum, 1, MPI_DOUBLE, MPI_SUM, comm);
 
-    double alpha = rnorm_sum1 / pdoty_sum;
+    double alpha = rnorm_old / pdoty_sum;
     x += alpha * psp.head(M);
     r -= alpha * y;
 
     // Update p
     rnorm = r.squaredNorm();
-    double rnorm_sum2;
-    MPI_Allreduce(&rnorm, &rnorm_sum2, 1, MPI_DOUBLE, MPI_SUM, comm);
-    double beta = rnorm_sum2 / rnorm_sum1;
-    rnorm_sum1 = rnorm_sum2;
-
+    double rnorm_new;
+    MPI_Allreduce(&rnorm, &rnorm_new, 1, MPI_DOUBLE, MPI_SUM, comm);
+    double beta = rnorm_new / rnorm_old;
     psp.head(M) *= beta;
     psp.head(M) += r;
-    std::cerr << k << ":" << rnorm << "\n";
+
+    if (mpi_rank == 0)
+      std::cout << k << ":" << rnorm_new << " "
+                << "\n";
+    if (rnorm_new < 1e-10)
+      return x;
+
+    rnorm_old = rnorm_new;
   }
   return x;
 }

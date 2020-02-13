@@ -13,6 +13,7 @@
 #endif
 
 #include "CreateA.h"
+#include "cg.h"
 #include "read_petsc.h"
 
 //-----------------------------------------------------------------------------
@@ -31,14 +32,36 @@ int main(int argc, char** argv)
   auto timer_start = std::chrono::system_clock::now();
 
   // Either create a simple 1D stencil
-  auto [A, l2g] = create_A(MPI_COMM_WORLD, 50000 * mpi_size);
-
-  // Or read file created with "-ksp_view_mat binary" option
-  //  auto [A, l2g] = read_petsc_binary(MPI_COMM_WORLD, "binaryoutput");
+  auto [A, l2g] = create_A(MPI_COMM_WORLD, 5000);
 
   // Get local and global sizes
   std::int64_t M = A.rows();
   std::int64_t N = l2g->global_size();
+
+  // Set up values in local range
+  int offset = l2g->global_offset();
+  Eigen::VectorXd b(M);
+  for (int i = 0; i < M; ++i)
+  {
+    double z = (double)(i + offset) / double(N);
+    b[i] = 0.05 * exp(-10 * pow(5 * (z - 0.5), 2.0));
+  }
+
+  Eigen::VectorXd x = cg(MPI_COMM_WORLD, A, l2g, b);
+
+  double xnorm = x.squaredNorm();
+  double xnorm_sum;
+  MPI_Allreduce(&xnorm, &xnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+  if (mpi_rank == 0)
+    std::cout << "x.norm = " << xnorm_sum << "\n";
+
+  l2g.reset();
+  MPI_Finalize();
+  return 0;
+
+  // Or read file created with "-ksp_view_mat binary" option
+  //  auto [A, l2g] = read_petsc_binary(MPI_COMM_WORLD, "binaryoutput");
 
 #ifdef EIGEN_USE_MKL_ALL
   sparse_matrix_t A_mkl;

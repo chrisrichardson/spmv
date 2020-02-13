@@ -49,27 +49,27 @@ create_A(MPI_Comm comm, int N)
   // Set up A
   // Add entries on all local rows
   // Using [local_row, global_column] indexing
-  double gamma = 0.1;
+  double dx = 1.0 / N;
   for (int i = 0; i < M; ++i)
   {
-    // Global column diagonal index
     int c0 = r0 + i;
+
     // Special case for very first and last global rows
     if (c0 == 0)
     {
-      A.insert(i, c0) = 1.0 - gamma;
-      A.insert(i, c0 + 1) = gamma;
+      A.insert(i, c0) = 1.0;
+      // A.insert(i, c0 + 1) = 0.0;
     }
     else if (c0 == (N - 1))
     {
-      A.insert(i, c0 - 1) = gamma;
-      A.insert(i, c0) = 1.0 - gamma;
+      A.insert(i, c0 - 1) = 1.0 / dx;
+      A.insert(i, c0) = -1.0 / dx;
     }
     else
     {
-      A.insert(i, c0 - 1) = gamma;
-      A.insert(i, c0) = 1.0 - 2.0 * gamma;
-      A.insert(i, c0 + 1) = gamma;
+      A.insert(i, c0 - 1) = 1.0 / dx;
+      A.insert(i, c0) = -2.0 / dx;
+      A.insert(i, c0 + 1) = 1.0 / dx;
     }
   }
   A.makeCompressed();
