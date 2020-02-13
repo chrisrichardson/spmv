@@ -9,9 +9,9 @@
 #include <mpi.h>
 
 #include "CreateA.h"
-#include "read_petsc.h"
-#include "Operator/Operator.h"
 #include "Operator/Eigen.h"
+#include "Operator/Operator.h"
+#include "read_petsc.h"
 #ifdef HAVE_CUDA
 #include "Operator/CUDA.h"
 using MyOperator = OperatorCUDA;

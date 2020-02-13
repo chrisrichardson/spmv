@@ -2,14 +2,15 @@
 #include "Operator.h"
 #include <cusparse_v2.h>
 
-class OperatorCUDA : public Operator {
+class OperatorCUDA : public Operator
+{
   cusparseHandle_t handle;
   cusparseSpMatDescr_t spmat;
   double* value;
   int *inner, *outer;
 
   double *alpha, *beta;
-  void *scratch;
+  void* scratch;
 
   cusparseDnVecDescr_t vecX, vecY;
   double *xdata, *ydata;
@@ -18,5 +19,5 @@ public:
   OperatorCUDA(Eigen::SparseMatrix<double, Eigen::RowMajor>& A);
   ~OperatorCUDA();
 
-  Eigen::VectorXd apply(Eigen::VectorXd &psp) const;
+  Eigen::VectorXd apply(Eigen::VectorXd& psp) const;
 };

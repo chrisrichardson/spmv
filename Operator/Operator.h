@@ -2,7 +2,8 @@
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 
-class Operator {
+class Operator
+{
 public:
-    virtual Eigen::VectorXd apply(Eigen::VectorXd&) const =0;
+  virtual Eigen::VectorXd apply(Eigen::VectorXd&) const = 0;
 };

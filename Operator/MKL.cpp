@@ -1,6 +1,8 @@
 #include "MKL.h"
 
-#define sparse_CHECK(x)if(x != SPARSE_STATUS_SUCCESS) throw std::runtime_error(#x " failed")
+#define sparse_CHECK(x)                                                        \
+  if (x != SPARSE_STATUS_SUCCESS)                                              \
+  throw std::runtime_error(#x " failed")
 
 OperatorMKL::OperatorMKL(Eigen::SparseMatrix<double, Eigen::RowMajor>& A)
 {
