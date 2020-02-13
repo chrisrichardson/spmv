@@ -15,7 +15,7 @@ project(${PROJECT_NAME} CXX)
 
 # Set CMake behavior
 cmake_policy(SET CMP0004 NEW)
-cmake_policy(SET CMP0076 NEW)
+# cmake_policy(SET CMP0076 NEW)
 
 set(CMAKE_CXX_FLAGS "-Werror=all")
 

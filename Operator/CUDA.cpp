@@ -32,10 +32,10 @@ OperatorCUDA::OperatorCUDA(Eigen::SparseMatrix<double, Eigen::RowMajor>& A) {
 
   // create vector descriptors
   cuda_CHECK(cudaMalloc(&xdata, A.cols() * sizeof(double)));
-  cusparse_CHECK(cusparseCreateDnVec(&vecX, A.rows(), xdata, CUDA_R_64F));
+  cusparse_CHECK(cusparseCreateDnVec(&vecX, A.cols(), xdata, CUDA_R_64F));
 
   cuda_CHECK(cudaMalloc(&ydata, A.rows() * sizeof(double)));
-  cusparse_CHECK(cusparseCreateDnVec(&vecY, A.cols(), ydata, CUDA_R_64F));
+  cusparse_CHECK(cusparseCreateDnVec(&vecY, A.rows(), ydata, CUDA_R_64F));
 
   // allocate scratch space
   size_t bufsize;
