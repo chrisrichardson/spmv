@@ -15,6 +15,8 @@ class OperatorCUDA : public Operator
   cusparseDnVecDescr_t vecX, vecY;
   double *xdata, *ydata;
 
+  int nnz, rows, cols;
+
 public:
   OperatorCUDA(Eigen::SparseMatrix<double, Eigen::RowMajor>& A);
   ~OperatorCUDA();
