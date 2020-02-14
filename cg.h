@@ -8,6 +8,6 @@ class L2GMap;
 
 // Solve A.x=b iteratively with Conjugate Gradient
 std::tuple<Eigen::VectorXd, int> cg(MPI_Comm comm,
-                   const Eigen::Ref<const Eigen::SparseMatrix<double, Eigen::RowMajor>>& A,
+                                    Eigen::Ref<Eigen::SparseMatrix<double, Eigen::RowMajor>> A,
                    const std::shared_ptr<const L2GMap> l2g,
                    const Eigen::Ref<const Eigen::VectorXd>& b);

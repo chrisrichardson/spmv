@@ -31,9 +31,15 @@ int main(int argc, char** argv)
 
   auto timer_start = std::chrono::system_clock::now();
   // Either create a simple 1D stencil
+  std::string argv1;
+  if (argc == 2)
+    argv1 = argv[1];
+  else
+    throw std::runtime_error("Use with filename");
+  
   std::string cores = std::to_string(mpi_size);
-  auto [A, l2g] = read_petsc_binary(MPI_COMM_WORLD, "petsc_mat"+cores+".dat");
-  auto b = read_petsc_binary_vector(MPI_COMM_WORLD, "petsc_vec"+cores+".dat");
+  auto [A, l2g] = read_petsc_binary(MPI_COMM_WORLD, "petsc_mat"+argv1+".dat");
+  auto b = read_petsc_binary_vector(MPI_COMM_WORLD, "petsc_vec"+argv1+".dat");
   // Get local and global sizes
   std::int64_t N = l2g->global_size();
 
