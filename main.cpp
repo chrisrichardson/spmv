@@ -35,8 +35,11 @@ int main(int argc, char** argv)
   auto [A, l2g] = read_petsc_binary(MPI_COMM_WORLD, "petsc_mat"+cores+".dat");
   auto b = read_petsc_binary_vector(MPI_COMM_WORLD, "petsc_vec"+cores+".dat");
   // Get local and global sizes
-  std::int64_t M = A.rows();
   std::int64_t N = l2g->global_size();
+
+  if (mpi_rank == 0)
+    std::cout << "Global vec size = " << N << "\n";
+
   auto timer_end = std::chrono::system_clock::now();
   timings["0.ReadPetsc"] += (timer_end - timer_start);
 
