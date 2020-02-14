@@ -8,14 +8,9 @@ std::tuple<Eigen::VectorXd, int>
 cg(MPI_Comm comm,
    Eigen::Ref<Eigen::SparseMatrix<double, Eigen::RowMajor>> A,
    const std::shared_ptr<const L2GMap> l2g,
-   const Eigen::Ref<const Eigen::VectorXd>& b)
+   const Eigen::Ref<const Eigen::VectorXd>& b,
+   int kmax, double rtol)
 {
-  // Max iterations
-  int kmax = 10000;
-
-  // Residual tolerance
-  double rtol = 1e-10;
-
   int mpi_rank;
   MPI_Comm_rank(comm, &mpi_rank);
 
@@ -59,13 +54,14 @@ cg(MPI_Comm comm,
   p = r;
 
   double rnorm = r.squaredNorm();
-  double rnorm_old;
-  MPI_Allreduce(&rnorm, &rnorm_old, 1, MPI_DOUBLE, MPI_SUM, comm);
+  double rnorm0;
+  MPI_Allreduce(&rnorm, &rnorm0, 1, MPI_DOUBLE, MPI_SUM, comm);
 
   // Iterations of CG
   Eigen::VectorXd x(M);
   x.setZero();
 
+  double rnorm_old = rnorm0;
   for (int k = 0; k < kmax; ++k)
   {
     // y = A.p
@@ -99,7 +95,7 @@ cg(MPI_Comm comm,
     p *= beta;
     p += r;
 
-    if (rnorm_new < rtol)
+    if (rnorm_new/rnorm0 < rtol)
       return {x, k};
   }
   return {x, kmax};

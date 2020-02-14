@@ -49,8 +49,11 @@ int main(int argc, char** argv)
   auto timer_end = std::chrono::system_clock::now();
   timings["0.ReadPetsc"] += (timer_end - timer_start);
 
+  int max_its = 10000;
+  double rtol = 1e-10;
+  
   timer_start = std::chrono::system_clock::now();
-  auto [x, num_its] = cg(MPI_COMM_WORLD, A, l2g, b);
+  auto [x, num_its] = cg(MPI_COMM_WORLD, A, l2g, b, max_its, rtol);
   timer_end = std::chrono::system_clock::now();
   timings["0.Solve"] += (timer_end - timer_start);
 
