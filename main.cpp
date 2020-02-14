@@ -32,20 +32,11 @@ int main(int argc, char** argv)
   auto timer_start = std::chrono::system_clock::now();
 
   // Either create a simple 1D stencil
-  auto [A, l2g] = create_A(MPI_COMM_WORLD, 5000);
-
+  auto [A, l2g] = read_petsc_binary(MPI_COMM_WORLD, "petsc_mat.dat");
+  auto b = read_petsc_binary_vector(MPI_COMM_WORLD, "petsc_vec.dat");
   // Get local and global sizes
   std::int64_t M = A.rows();
   std::int64_t N = l2g->global_size();
-
-  // Set up values in local range
-  int offset = l2g->global_offset();
-  Eigen::VectorXd b(M);
-  for (int i = 0; i < M; ++i)
-  {
-    double z = (double)(i + offset) / double(N);
-    b[i] = 0.05 * exp(-10 * pow(5 * (z - 0.5), 2.0));
-  }
 
   Eigen::VectorXd x = cg(MPI_COMM_WORLD, A, l2g, b);
 
@@ -54,7 +45,7 @@ int main(int argc, char** argv)
   MPI_Allreduce(&xnorm, &xnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
   if (mpi_rank == 0)
-    std::cout << "x.norm = " << xnorm_sum << "\n";
+    std::cout << "x.norm = " << std::sqrt(xnorm_sum) << "\n";
 
   l2g.reset();
   MPI_Finalize();
