@@ -11,23 +11,24 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(PROJECT_NAME eigen_mult)
-project(${PROJECT_NAME})
+project(${PROJECT_NAME} CXX)
 
 # Set CMake behavior
 cmake_policy(SET CMP0004 NEW)
+# cmake_policy(SET CMP0076 NEW)
 
 set(CMAKE_CXX_FLAGS "-Werror=all")
 
 find_package(MPI REQUIRED)
 
-set(BLA_VENDOR Intel10_64lp)
+set(BLA_VENDOR Intel10_64lp_seq)
 find_package(BLAS)
 
 find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR} ${MPI_INCLUDE_PATH})
 
 # Executable
-add_executable(${PROJECT_NAME} main.cpp read_petsc.cpp CreateA.cpp L2GMap.cpp cg.cpp)
+add_executable(${PROJECT_NAME} main.cpp read_petsc.cpp cg.cpp L2GMap.cpp)
 
 
 if(BLAS_FOUND)
@@ -37,3 +38,11 @@ endif()
 
 # Target libraries
 target_link_libraries(${PROJECT_NAME} ${MPI_LIBRARIES})
+
+# in cmake 17 this should be find_package(CUDAToolkit)
+find_package(CUDA)
+if (CUDA_FOUND)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC HAVE_CUDA)
+    include_directories(${CUDA_INCLUDE_DIRS})
+    target_link_libraries(${PROJECT_NAME} ${CUDA_cusparse_LIBRARY} ${CUDA_cublas_LIBRARY} ${CUDA_LIBRARIES})
+endif()
