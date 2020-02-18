@@ -3,13 +3,10 @@
 #include <iostream>
 
 //-----------------------------------------------------------------------------
-// Untested CG solver
 std::tuple<Eigen::VectorXd, int>
-cg(MPI_Comm comm,
-   Eigen::Ref<Eigen::SparseMatrix<double, Eigen::RowMajor>> A,
+cg(MPI_Comm comm, Eigen::Ref<Eigen::SparseMatrix<double, Eigen::RowMajor>> A,
    const std::shared_ptr<const L2GMap> l2g,
-   const Eigen::Ref<const Eigen::VectorXd>& b,
-   int kmax, double rtol)
+   const Eigen::Ref<const Eigen::VectorXd>& b, int kmax, double rtol)
 {
   int mpi_rank;
   MPI_Comm_rank(comm, &mpi_rank);
@@ -37,29 +34,20 @@ cg(MPI_Comm comm,
   // Residual vector
   Eigen::VectorXd r(M);
   Eigen::VectorXd y(M);
+  Eigen::VectorXd x(M);
   Eigen::VectorXd psp(l2g->local_size());
   Eigen::Map<Eigen::VectorXd> p(psp.data(), M);
 
-  p = b;
-  l2g->update(psp.data());
-#ifdef EIGEN_USE_MKL_ALL
-  mkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A_mkl, mat_desc,
-                  psp.data(), 0.0, y.data());
-#else
-  y = A * psp;
-#endif
-  r = b - y;
-
   // Assign to dense part of sparse vector
-  p = r;
+  r = b;
+  p = b;
+  x.setZero();
 
   double rnorm = r.squaredNorm();
   double rnorm0;
   MPI_Allreduce(&rnorm, &rnorm0, 1, MPI_DOUBLE, MPI_SUM, comm);
 
   // Iterations of CG
-  Eigen::VectorXd x(M);
-  x.setZero();
 
   double rnorm_old = rnorm0;
   for (int k = 0; k < kmax; ++k)
@@ -72,7 +60,7 @@ cg(MPI_Comm comm,
                     psp.data(), 0.0, y.data());
 #else
     y = A * psp;
-#endif  
+#endif
 
     // Calculate alpha = r.r/p.y
     double pdoty = p.dot(y);
@@ -92,10 +80,9 @@ cg(MPI_Comm comm,
     rnorm_old = rnorm_new;
 
     // Update p
-    p *= beta;
-    p += r;
+    p = p * beta + r;
 
-    if (rnorm_new/rnorm0 < rtol)
+    if (rnorm_new / rnorm0 < rtol)
       return {x, k};
   }
   return {x, kmax};
