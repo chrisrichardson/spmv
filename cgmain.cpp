@@ -68,6 +68,7 @@ int main(int argc, char** argv)
     std::cout << "x.norm = " << std::sqrt(xnorm_sum) << " in " << num_its
               << "\n";
 
+#ifdef HAVE_CUDA
   timer_start = std::chrono::system_clock::now();
   std::tie(x, num_its)
       = spmv::cg_cuda(MPI_COMM_WORLD, A, l2g, b, max_its, rtol);
@@ -76,6 +77,7 @@ int main(int argc, char** argv)
 
   xnorm = x.squaredNorm();
   MPI_Allreduce(&xnorm, &xnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+#endif
 
   // Test result - prepare ghosted vector
   Eigen::VectorXd xsp(l2g->local_size());

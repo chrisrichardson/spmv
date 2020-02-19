@@ -102,6 +102,8 @@ spmv::cg(MPI_Comm comm,
   return {x, kmax};
 }
 
+#ifdef HAVE_CUDA
+//-----------------------------------------------------------------------------
 #define cuda_CHECK(x)                                                          \
   if (x != cudaSuccess)                                                        \
   throw std::runtime_error(#x " failed")
@@ -109,7 +111,6 @@ spmv::cg(MPI_Comm comm,
   if (x != CUSPARSE_STATUS_SUCCESS)                                            \
   throw std::runtime_error(#x " failed")
 //-----------------------------------------------------------------------------
-#ifdef HAVE_CUDA
 std::tuple<Eigen::VectorXd, int>
 spmv::cg_cuda(MPI_Comm comm,
               Eigen::Ref<Eigen::SparseMatrix<double, Eigen::RowMajor>> A,
