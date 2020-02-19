@@ -1,17 +1,25 @@
-#include "cg.h"
-#include "L2GMap.h"
-#include <iostream>
+// Copyright (C) 2020 Chris Richardson (chris@bpi.cam.ac.uk) and Jeffrey Salmond
+// SPDX-License-Identifier:    LGPL-3.0-or-later
 
+#ifdef EIGEN_USE_MKL_ALL
+#include <mkl.h>
+#endif
+
+#include "L2GMap.h"
+#include "cg.h"
+
+#ifdef HAVE_CUDA
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 #include <cusparse_v2.h>
+#endif
 
 //-----------------------------------------------------------------------------
-// Untested CG solver
 std::tuple<Eigen::VectorXd, int>
-cg(MPI_Comm comm, Eigen::Ref<Eigen::SparseMatrix<double, Eigen::RowMajor>> A,
-   const std::shared_ptr<const L2GMap> l2g,
-   const Eigen::Ref<const Eigen::VectorXd>& b, int kmax, double rtol)
+spmv::cg(MPI_Comm comm,
+         Eigen::Ref<Eigen::SparseMatrix<double, Eigen::RowMajor>> A,
+         const std::shared_ptr<const spmv::L2GMap> l2g,
+         const Eigen::Ref<const Eigen::VectorXd>& b, int kmax, double rtol)
 {
   int mpi_rank;
   MPI_Comm_rank(comm, &mpi_rank);
@@ -39,29 +47,20 @@ cg(MPI_Comm comm, Eigen::Ref<Eigen::SparseMatrix<double, Eigen::RowMajor>> A,
   // Residual vector
   Eigen::VectorXd r(M);
   Eigen::VectorXd y(M);
+  Eigen::VectorXd x(M);
   Eigen::VectorXd psp(l2g->local_size());
   Eigen::Map<Eigen::VectorXd> p(psp.data(), M);
 
-  p = b;
-  l2g->update(psp.data());
-#ifdef EIGEN_USE_MKL_ALL
-  mkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A_mkl, mat_desc,
-                  psp.data(), 0.0, y.data());
-#else
-  y = A * psp;
-#endif
-  r = b - y;
-
   // Assign to dense part of sparse vector
-  p = r;
+  r = b;
+  p = b;
+  x.setZero();
 
   double rnorm = r.squaredNorm();
   double rnorm0;
   MPI_Allreduce(&rnorm, &rnorm0, 1, MPI_DOUBLE, MPI_SUM, comm);
 
   // Iterations of CG
-  Eigen::VectorXd x(M);
-  x.setZero();
 
   double rnorm_old = rnorm0;
   for (int k = 0; k < kmax; ++k)
@@ -94,8 +93,7 @@ cg(MPI_Comm comm, Eigen::Ref<Eigen::SparseMatrix<double, Eigen::RowMajor>> A,
     rnorm_old = rnorm_new;
 
     // Update p
-    p *= beta;
-    p += r;
+    p = p * beta + r;
 
     if (rnorm_new / rnorm0 < rtol)
       return {x, k};
@@ -109,12 +107,13 @@ cg(MPI_Comm comm, Eigen::Ref<Eigen::SparseMatrix<double, Eigen::RowMajor>> A,
 #define cusparse_CHECK(x)                                                      \
   if (x != CUSPARSE_STATUS_SUCCESS)                                            \
   throw std::runtime_error(#x " failed")
-
+//-----------------------------------------------------------------------------
+#ifdef HAVE_CUDA
 std::tuple<Eigen::VectorXd, int>
-cg_cuda(MPI_Comm comm,
-        Eigen::Ref<Eigen::SparseMatrix<double, Eigen::RowMajor>> A,
-        const std::shared_ptr<const L2GMap> l2g,
-        const Eigen::Ref<const Eigen::VectorXd>& b, int kmax, double rtol)
+spmv::cg_cuda(MPI_Comm comm,
+              Eigen::Ref<Eigen::SparseMatrix<double, Eigen::RowMajor>> A,
+              const std::shared_ptr<const spmv::L2GMap> l2g,
+              const Eigen::Ref<const Eigen::VectorXd>& b, int kmax, double rtol)
 {
   int mpi_rank;
   MPI_Comm_rank(comm, &mpi_rank);
@@ -256,3 +255,4 @@ cg_cuda(MPI_Comm comm,
   Eigen::Matrix<double, Eigen::Dynamic, 1> x_eigen(rows);
   return {x_eigen, kmax};
 }
+#endif

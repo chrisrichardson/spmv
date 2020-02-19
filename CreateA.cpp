@@ -1,3 +1,5 @@
+// Copyright (C) 2018-2020 Chris Richardson (chris@bpi.cam.ac.uk)
+// SPDX-License-Identifier:    LGPL-3.0-or-later
 
 #include "CreateA.h"
 #include "L2GMap.h"
@@ -27,7 +29,7 @@ std::vector<index_type> owner_ranges(std::int64_t size, index_type N)
 }
 //-----------------------------------------------------------------------------
 std::tuple<Eigen::SparseMatrix<double, Eigen::RowMajor>,
-           std::shared_ptr<L2GMap>>
+           std::shared_ptr<spmv::L2GMap>>
 create_A(MPI_Comm comm, int N)
 {
   int mpi_rank;
@@ -49,27 +51,27 @@ create_A(MPI_Comm comm, int N)
   // Set up A
   // Add entries on all local rows
   // Using [local_row, global_column] indexing
-  double dx = 1.0 / N;
+  double gamma = 0.1;
   for (int i = 0; i < M; ++i)
   {
+    // Global column diagonal index
     int c0 = r0 + i;
-
     // Special case for very first and last global rows
     if (c0 == 0)
     {
-      A.insert(i, c0) = 1.0;
-      // A.insert(i, c0 + 1) = 0.0;
+      A.insert(i, c0) = 1.0 - gamma;
+      A.insert(i, c0 + 1) = gamma;
     }
     else if (c0 == (N - 1))
     {
-      A.insert(i, c0 - 1) = 1.0 / dx;
-      A.insert(i, c0) = -1.0 / dx;
+      A.insert(i, c0 - 1) = gamma;
+      A.insert(i, c0) = 1.0 - gamma;
     }
     else
     {
-      A.insert(i, c0 - 1) = 1.0 / dx;
-      A.insert(i, c0) = -2.0 / dx;
-      A.insert(i, c0 + 1) = 1.0 / dx;
+      A.insert(i, c0 - 1) = gamma;
+      A.insert(i, c0) = 1.0 - 2.0 * gamma;
+      A.insert(i, c0 + 1) = gamma;
     }
   }
   A.makeCompressed();
@@ -85,7 +87,7 @@ create_A(MPI_Comm comm, int N)
   }
 
   std::vector<index_type> ghosts(ghost_indices.begin(), ghost_indices.end());
-  auto l2g = std::make_shared<L2GMap>(comm, ranges, ghosts);
+  auto l2g = std::make_shared<spmv::L2GMap>(comm, ranges, ghosts);
 
   // Rebuild A using local indices
   Eigen::SparseMatrix<double, Eigen::RowMajor> Alocal(M, M + ghosts.size());
