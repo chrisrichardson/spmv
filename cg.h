@@ -7,8 +7,18 @@
 #include <memory>
 #include <mpi.h>
 
+#ifdef EIGEN_USE_MKL_ALL
+#include "mkl_sparsematrix.h"
+#endif
+
 namespace spmv
 {
+
+#ifdef EIGEN_USE_MKL_ALL
+using SparseMatrix = MKLSparseMatrix;
+#else
+using SparseMatrix = Eigen::SparseMatrix<double, Eigen::RowMajor>;
+#endif
 
 class L2GMap;
 
@@ -25,7 +35,7 @@ class L2GMap;
 // @return tuple of result and number of iterations
 //
 std::tuple<Eigen::VectorXd, int>
-cg(MPI_Comm comm, Eigen::Ref<Eigen::SparseMatrix<double, Eigen::RowMajor>> A,
+cg(MPI_Comm comm, SparseMatrix A,
    const std::shared_ptr<const L2GMap> l2g,
    const Eigen::Ref<const Eigen::VectorXd>& b, int max_its, double rtol);
 
