@@ -63,7 +63,6 @@ spmv::cg(MPI_Comm comm,
   MPI_Allreduce(&rnorm, &rnorm0, 1, MPI_DOUBLE, MPI_SUM, comm);
 
   // Iterations of CG
-
   double rnorm_old = rnorm0;
   for (int k = 0; k < kmax; ++k)
   {
@@ -199,7 +198,7 @@ spmv::cg_cuda(MPI_Comm comm,
       cudaMemcpy(psp, r, rows * sizeof(double), cudaMemcpyDeviceToDevice));
 
   double rnorm; // = r.squaredNorm();
-  cublasDnrm2(blas_handle, rows, r, 1, &rnorm);
+  cublasDdot(blas_handle, rows, r, 1, r, 1, &rnorm);
   double rnorm0;
   MPI_Allreduce(&rnorm, &rnorm0, 1, MPI_DOUBLE, MPI_SUM, comm);
 
@@ -208,7 +207,7 @@ spmv::cg_cuda(MPI_Comm comm,
   for (int k = 0; k < kmax; ++k)
   {
     // y = A.p
-    //    l2g->update(psp);
+    l2g->update(psp);
     cusparse_CHECK(cusparseSpMV(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
                                 alpha_d, spmat, vecP, beta_d, vecY, CUDA_R_64F,
                                 CUSPARSE_MV_ALG_DEFAULT, scratch));
@@ -231,7 +230,7 @@ spmv::cg_cuda(MPI_Comm comm,
 
     // Update rnorm
     //    rnorm = r.squaredNorm();
-    cublasDnrm2(blas_handle, rows, r, 1, &rnorm);
+    cublasDdot(blas_handle, rows, r, 1, r, 1, &rnorm);
     double rnorm_new;
     MPI_Allreduce(&rnorm, &rnorm_new, 1, MPI_DOUBLE, MPI_SUM, comm);
     double beta = rnorm_new / rnorm_old;

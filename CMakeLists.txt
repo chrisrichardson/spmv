@@ -21,7 +21,7 @@ set(CMAKE_CXX_FLAGS "-Werror=all")
 
 find_package(MPI REQUIRED)
 
-set(BLA_VENDOR Intel10_64lp_seq)
+set(BLA_VENDOR Intel10_64lp)
 find_package(BLAS)
 
 find_package(Eigen3 REQUIRED)

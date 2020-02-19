@@ -57,17 +57,24 @@ int main(int argc, char** argv)
 
   timer_start = std::chrono::system_clock::now();
   auto [x, num_its] = spmv::cg(MPI_COMM_WORLD, A, l2g, b, max_its, rtol);
-
-  std::cout << x.squaredNorm() << ":" << num_its << "\n";
-
-  std::tie(x, num_its)
-      = spmv::cg_cuda(MPI_COMM_WORLD, A, l2g, b, max_its, rtol);
-
   timer_end = std::chrono::system_clock::now();
-  timings["0.Solve"] += (timer_end - timer_start);
+  timings["0.Solve(CPU)"] += (timer_end - timer_start);
 
   double xnorm = x.squaredNorm();
   double xnorm_sum;
+  MPI_Allreduce(&xnorm, &xnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+  if (mpi_rank == 0)
+    std::cout << "x.norm = " << std::sqrt(xnorm_sum) << " in " << num_its
+              << "\n";
+
+  timer_start = std::chrono::system_clock::now();
+  std::tie(x, num_its)
+      = spmv::cg_cuda(MPI_COMM_WORLD, A, l2g, b, max_its, rtol);
+  timer_end = std::chrono::system_clock::now();
+  timings["0.Solve(CUDA)"] += (timer_end - timer_start);
+
+  xnorm = x.squaredNorm();
   MPI_Allreduce(&xnorm, &xnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
   // Test result - prepare ghosted vector
