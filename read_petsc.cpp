@@ -30,8 +30,8 @@ std::vector<std::int32_t> owner_ranges(int size, std::int64_t N)
 }
 //-----------------------------------------------------------------------------
 std::tuple<Eigen::SparseMatrix<double, Eigen::RowMajor>,
-           std::shared_ptr<L2GMap>>
-read_petsc_binary(MPI_Comm comm, std::string filename)
+           std::shared_ptr<spmv::L2GMap>>
+spmv::read_petsc_binary(MPI_Comm comm, std::string filename)
 {
   Eigen::SparseMatrix<double, Eigen::RowMajor> A;
 
@@ -178,12 +178,13 @@ read_petsc_binary(MPI_Comm comm, std::string filename)
     if (q.first < ranges[mpi_rank] or q.first >= ranges[mpi_rank + 1])
       ghosts[q.second - nrows_local] = q.first;
 
-  auto l2g = std::make_shared<L2GMap>(comm, ranges, ghosts);
+  auto l2g = std::make_shared<spmv::L2GMap>(comm, ranges, ghosts);
 
   return {A, l2g};
 }
 //-----------------------------------------------------------------------------
-Eigen::VectorXd read_petsc_binary_vector(MPI_Comm comm, std::string filename)
+Eigen::VectorXd spmv::read_petsc_binary_vector(MPI_Comm comm,
+                                               std::string filename)
 {
   Eigen::VectorXd vec;
 

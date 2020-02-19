@@ -10,7 +10,7 @@ set(CMAKE_CXX_STANDARD 17)
 # Require C++11
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(PROJECT_NAME eigen_mult)
+set(PROJECT_NAME spmv)
 project(${PROJECT_NAME})
 
 # Set CMake behavior
@@ -26,9 +26,11 @@ find_package(BLAS)
 find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR} ${MPI_INCLUDE_PATH})
 
-# Executable
-add_executable(${PROJECT_NAME} main.cpp read_petsc.cpp CreateA.cpp L2GMap.cpp cg.cpp)
+# Executables
+add_executable(cgmain cgmain.cpp)
+target_link_libraries(cgmain ${PROJECT_NAME})
 
+add_library(${PROJECT_NAME} SHARED read_petsc.cpp CreateA.cpp L2GMap.cpp cg.cpp)
 
 if(BLAS_FOUND)
     target_compile_definitions(${PROJECT_NAME} PUBLIC EIGEN_USE_MKL_ALL)
