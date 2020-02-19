@@ -1,6 +1,12 @@
-#include "cg.h"
+// Copyright (C) 2020 Chris Richardson (chris@bpi.cam.ac.uk) and Jeffrey Salmond
+// SPDX-License-Identifier:    LGPL-3.0-or-later
+
+#ifdef EIGEN_USE_MKL_ALL
+#include <mkl.h>
+#endif
+
 #include "L2GMap.h"
-#include <iostream>
+#include "cg.h"
 
 //-----------------------------------------------------------------------------
 std::tuple<Eigen::VectorXd, int>

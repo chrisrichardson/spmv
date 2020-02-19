@@ -1,3 +1,6 @@
+// Copyright (C) 2020 Chris Richardson (chris@bpi.cam.ac.uk) and Jeffrey Salmond
+// SPDX-License-Identifier:    LGPL-3.0-or-later
+
 #pragma once
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
