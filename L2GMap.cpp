@@ -103,6 +103,9 @@ void L2GMap::update(double* vec_data) const
 {
   // Get data from local indices to send to other processes, landing in their
   // ghost region
+
+  // NB on GPU, vec_data is "device memory", so should also be _databuf?
+
   for (std::size_t i = 0; i < _indexbuf.size(); ++i)
     _databuf[i] = vec_data[_indexbuf[i]];
 
