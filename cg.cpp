@@ -123,7 +123,7 @@ spmv::cg_cuda(MPI_Comm comm,
   // Initialise cuBLAS
   cublasHandle_t blas_handle;
   cublasCreate(&blas_handle);
-  
+
   // Copy A over to gpu
   cusparseHandle_t handle;
   cusparseSpMatDescr_t spmat;
@@ -152,7 +152,16 @@ spmv::cg_cuda(MPI_Comm comm,
                                    CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
                                    CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F));
 
-  double alpha[] = {1.0}, beta[] = {0.0};
+  double* alpha_d;
+  double* beta_d;
+  cuda_CHECK(cudaMalloc(&alpha_d, sizeof(double)));
+  cuda_CHECK(cudaMalloc(&beta_d, sizeof(double)));
+
+  double alpha_h = 1, beta_h = 0;
+  cuda_CHECK(
+      cudaMemcpy(alpha_d, &alpha_h, sizeof(double), cudaMemcpyHostToDevice));
+  cuda_CHECK(
+      cudaMemcpy(beta_d, &beta_h, sizeof(double), cudaMemcpyHostToDevice));
 
   cusparseDnVecDescr_t vecY;
   double* y;
@@ -170,12 +179,12 @@ spmv::cg_cuda(MPI_Comm comm,
   double zero = 0.0;
   cuda_CHECK(cudaMalloc(&x, rows * sizeof(double)));
   cublasDscal(blas_handle, rows, &zero, x, 1);
-  
+
   // allocate scratch space
   size_t bufsize;
   void* scratch;
   cusparse_CHECK(cusparseSpMV_bufferSize(
-      handle, CUSPARSE_OPERATION_NON_TRANSPOSE, alpha, spmat, vecP, beta,
+      handle, CUSPARSE_OPERATION_NON_TRANSPOSE, alpha_d, spmat, vecP, beta_d,
       vecY, CUDA_R_64F, CUSPARSE_MV_ALG_DEFAULT, &bufsize));
   cuda_CHECK(cudaMalloc(&scratch, bufsize));
 
@@ -194,30 +203,24 @@ spmv::cg_cuda(MPI_Comm comm,
   double rnorm0;
   MPI_Allreduce(&rnorm, &rnorm0, 1, MPI_DOUBLE, MPI_SUM, comm);
 
-  std::cout << "rnorm0 = " << rnorm0 << "\n";
-
   // Iterations of CG
   double rnorm_old = rnorm0;
   for (int k = 0; k < kmax; ++k)
   {
     // y = A.p
     //    l2g->update(psp);
-    cusparse_CHECK(cusparseSpMV(handle, CUSPARSE_OPERATION_NON_TRANSPOSE, alpha,
-                                spmat, vecP, beta, vecY, CUDA_R_64F,
+    cusparse_CHECK(cusparseSpMV(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                alpha_d, spmat, vecP, beta_d, vecY, CUDA_R_64F,
                                 CUSPARSE_MV_ALG_DEFAULT, scratch));
 
     // Calculate alpha = r.r/p.y
     double pdoty; // = p.dot(y);
     cublasDdot(blas_handle, rows, psp, 1, y, 1, &pdoty);
 
-    std::cout << "p.y = " << pdoty << "\n";
-    
     double pdoty_sum;
     MPI_Allreduce(&pdoty, &pdoty_sum, 1, MPI_DOUBLE, MPI_SUM, comm);
     double alpha = rnorm_old / pdoty_sum;
 
-    std::cout << "alpha = " << alpha << "\n";
-    
     // Update x and r
     //    x += alpha * p;
     cublasDaxpy(blas_handle, rows, &alpha, psp, 1, x, 1);
@@ -229,14 +232,11 @@ spmv::cg_cuda(MPI_Comm comm,
     // Update rnorm
     //    rnorm = r.squaredNorm();
     cublasDnrm2(blas_handle, rows, r, 1, &rnorm);
-    std::cout << "r.r = " << rnorm << "\n";
     double rnorm_new;
     MPI_Allreduce(&rnorm, &rnorm_new, 1, MPI_DOUBLE, MPI_SUM, comm);
     double beta = rnorm_new / rnorm_old;
     rnorm_old = rnorm_new;
 
-    std::cout << rnorm_new << "\n";
-    
     // Update p
     //    p *= beta;
     //    p += r;
@@ -247,12 +247,14 @@ spmv::cg_cuda(MPI_Comm comm,
     if (rnorm_new / rnorm0 < rtol)
     {
       Eigen::Matrix<double, Eigen::Dynamic, 1> x_eigen(rows);
-      cuda_CHECK(cudaMemcpy(x, x_eigen.data(), rows * sizeof(double),
+      cuda_CHECK(cudaMemcpy(x_eigen.data(), x, rows * sizeof(double),
                             cudaMemcpyDeviceToHost));
       return {x_eigen, k};
     }
   }
   Eigen::Matrix<double, Eigen::Dynamic, 1> x_eigen(rows);
+  cuda_CHECK(cudaMemcpy(x_eigen.data(), x, rows * sizeof(double),
+                        cudaMemcpyDeviceToHost));
   return {x_eigen, kmax};
 }
 #endif

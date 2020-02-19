@@ -56,11 +56,12 @@ int main(int argc, char** argv)
   double rtol = 1e-10;
 
   timer_start = std::chrono::system_clock::now();
-#ifdef HAVE_CUDA
-  auto [x, num_its] = spmv::cg_cuda(MPI_COMM_WORLD, A, l2g, b, max_its, rtol);
-#else
   auto [x, num_its] = spmv::cg(MPI_COMM_WORLD, A, l2g, b, max_its, rtol);
-#endif
+
+  std::cout << x.squaredNorm() << ":" << num_its << "\n";
+
+  std::tie(x, num_its)
+      = spmv::cg_cuda(MPI_COMM_WORLD, A, l2g, b, max_its, rtol);
 
   timer_end = std::chrono::system_clock::now();
   timings["0.Solve"] += (timer_end - timer_start);
