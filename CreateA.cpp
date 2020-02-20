@@ -1,3 +1,5 @@
+// Copyright (C) 2018-2020 Chris Richardson (chris@bpi.cam.ac.uk)
+// SPDX-License-Identifier:    LGPL-3.0-or-later
 
 #include "CreateA.h"
 #include "L2GMap.h"
@@ -27,7 +29,7 @@ std::vector<index_type> owner_ranges(std::int64_t size, index_type N)
 }
 //-----------------------------------------------------------------------------
 std::tuple<Eigen::SparseMatrix<double, Eigen::RowMajor>,
-           std::shared_ptr<L2GMap>>
+           std::shared_ptr<spmv::L2GMap>>
 create_A(MPI_Comm comm, int N)
 {
   int mpi_rank;
@@ -85,7 +87,7 @@ create_A(MPI_Comm comm, int N)
   }
 
   std::vector<index_type> ghosts(ghost_indices.begin(), ghost_indices.end());
-  auto l2g = std::make_shared<L2GMap>(comm, ranges, ghosts);
+  auto l2g = std::make_shared<spmv::L2GMap>(comm, ranges, ghosts);
 
   // Rebuild A using local indices
   Eigen::SparseMatrix<double, Eigen::RowMajor> Alocal(M, M + ghosts.size());

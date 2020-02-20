@@ -14,6 +14,7 @@
 #endif
 
 #include "CreateR.h"
+#include "L2GMap.h"
 #include "read_petsc.h"
 
 //-----------------------------------------------------------------------------

@@ -7,6 +7,8 @@
 #include <set>
 #include <vector>
 
+using namespace spmv;
+
 //-----------------------------------------------------------------------------
 L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
                const std::vector<index_type>& ghosts)

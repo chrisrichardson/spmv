@@ -10,6 +10,9 @@
 
 typedef Eigen::SparseMatrix<double>::StorageIndex index_type;
 
+namespace spmv
+{
+
 class L2GMap
 {
 public:
@@ -64,3 +67,5 @@ private:
 
   MPI_Comm _neighbour_comm;
 };
+
+} // namespace spmv
