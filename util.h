@@ -4,7 +4,7 @@
 #include<Eigen/Sparse>
 
 Eigen::VectorXd
-extract_diagonal(Eigen::SparseMatrix<double, Eigen::RowMajor>& mat);
+extract_diagonal(const Eigen::SparseMatrix<double, Eigen::RowMajor>& mat);
 
 std::vector<int>
-diagonal_block_nnz(Eigen::SparseMatrix<double, Eigen::RowMajor>& mat);
+diagonal_block_nnz(const Eigen::SparseMatrix<double, Eigen::RowMajor>& mat);
