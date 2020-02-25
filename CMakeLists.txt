@@ -29,12 +29,12 @@ include_directories(${EIGEN3_INCLUDE_DIR} ${MPI_INCLUDE_PATH})
 # Executables
 add_executable(cgmain cgmain.cpp)
 target_link_libraries(cgmain ${PROJECT_NAME})
-add_executable(matvecmain matvecmain.cpp)
+add_executable(matvecmain matvecmain.cpp CreateA.cpp)
 target_link_libraries(matvecmain ${PROJECT_NAME})
 add_executable(restrictmain restrictmain.cpp)
 target_link_libraries(restrictmain ${PROJECT_NAME})
 
-add_library(${PROJECT_NAME} SHARED read_petsc.cpp CreateA.cpp L2GMap.cpp cg.cpp)
+add_library(${PROJECT_NAME} SHARED read_petsc.cpp L2GMap.cpp cg.cpp)
 
 if(BLAS_FOUND)
     target_compile_definitions(${PROJECT_NAME} PUBLIC EIGEN_USE_MKL_ALL)
