@@ -33,14 +33,13 @@ int main(int argc, char** argv)
   std::map<std::string, std::chrono::duration<double>> timings;
 
   auto timer_start = std::chrono::system_clock::now();
-  // Either create a simple 1D stencil
+
   std::string argv1;
   if (argc == 2)
     argv1 = argv[1];
   else
     throw std::runtime_error("Use with filename");
 
-  std::string cores = std::to_string(mpi_size);
   auto [A, l2g]
       = spmv::read_petsc_binary(MPI_COMM_WORLD, "petsc_mat" + argv1 + ".dat");
   auto b = spmv::read_petsc_binary_vector(MPI_COMM_WORLD,
@@ -62,7 +61,7 @@ int main(int argc, char** argv)
   timer_start = std::chrono::system_clock::now();
   auto [x, num_its] = spmv::cg(MPI_COMM_WORLD, A, l2g, b, max_its, rtol);
   timer_end = std::chrono::system_clock::now();
-  timings["0.Solve"] += (timer_end - timer_start);
+  timings["1.Solve"] += (timer_end - timer_start);
   MPI_Pcontrol(0);
 
   // Get norm on local part of vector
@@ -70,7 +69,7 @@ int main(int argc, char** argv)
   double xnorm_sum;
   MPI_Allreduce(&xnorm, &xnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-  // Test result 
+  // Test result
   l2g->update(x.data());
 
   Eigen::VectorXd r = A * x - b;
@@ -90,6 +89,10 @@ int main(int argc, char** argv)
   std::chrono::duration<double> total_time
       = std::chrono::duration<double>::zero();
   for (auto q : timings)
+    total_time += q.second;
+  timings["Total"] = total_time;
+
+  for (auto q : timings)
   {
     double q_local = q.second.count(), q_max, q_min;
     MPI_Reduce(&q_local, &q_max, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
@@ -101,19 +104,10 @@ int main(int argc, char** argv)
       std::cout << "[" << q.first << "]" << pad << q_min << '\t' << q_max
                 << "\n";
     }
-    total_time += q.second;
   }
 
-  double total_local = total_time.count(), total_min, total_max;
-  MPI_Reduce(&total_local, &total_max, 1, MPI_DOUBLE, MPI_MAX, 0,
-             MPI_COMM_WORLD);
-  MPI_Reduce(&total_local, &total_min, 1, MPI_DOUBLE, MPI_MIN, 0,
-             MPI_COMM_WORLD);
   if (mpi_rank == 0)
-  {
-    std::cout << "[Total]           " << total_min << '\t' << total_max << "\n";
     std::cout << "----------------------------\n";
-  }
 
   // Need to destroy L2G here before MPI_Finalize, because it holds a comm
   l2g.reset();
