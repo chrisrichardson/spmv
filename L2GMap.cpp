@@ -3,20 +3,49 @@
 
 #include "L2GMap.h"
 #include <algorithm>
+#include <complex>
 #include <iostream>
 #include <set>
 #include <vector>
 
 using namespace spmv;
 
+namespace
+{
+template <typename T>
+MPI_Datatype mpi_type();
+
+template <>
+MPI_Datatype mpi_type<float>()
+{
+  return MPI_FLOAT;
+}
+template <>
+MPI_Datatype mpi_type<std::complex<float>>()
+{
+  return MPI_C_FLOAT_COMPLEX;
+}
+template <>
+MPI_Datatype mpi_type<double>()
+{
+  return MPI_DOUBLE;
+}
+template <>
+MPI_Datatype mpi_type<std::complex<double>>()
+{
+  return MPI_DOUBLE_COMPLEX;
+}
+} // namespace
 //-----------------------------------------------------------------------------
-L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
-               const std::vector<index_type>& ghosts)
+template <class T>
+L2GMap<T>::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
+                  const std::vector<index_type>& ghosts)
     : _ranges(ranges), _ghosts(ghosts)
 {
   int mpi_size;
   MPI_Comm_size(comm, &mpi_size);
   MPI_Comm_rank(comm, &_mpi_rank);
+  _mpi_type = mpi_type<T>();
 
   const std::int64_t r0 = _ranges[_mpi_rank];
   const std::int64_t r1 = _ranges[_mpi_rank + 1];
@@ -74,7 +103,7 @@ L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
   int count = _recv_offset.back();
 
   _indexbuf.resize(count);
-  _databuf.resize(count);
+  //  _databuf.resize(count);
 
   // Send global indices to remote processes that own them
   int err = MPI_Neighbor_alltoallv(
@@ -96,42 +125,50 @@ L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
     s += local_size;
 }
 //-----------------------------------------------------------------------------
-L2GMap::~L2GMap() { MPI_Comm_free(&_neighbour_comm); }
+template <class T>
+L2GMap<T>::~L2GMap()
+{
+  MPI_Comm_free(&_neighbour_comm);
+}
 //-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-void L2GMap::update(double* vec_data) const
+template <class T>
+void L2GMap<T>::update(T* vec_data) const
 {
   // Get data from local indices to send to other processes, landing in their
   // ghost region
+  std::vector<T> databuf(_indexbuf.size());
   for (std::size_t i = 0; i < _indexbuf.size(); ++i)
-    _databuf[i] = vec_data[_indexbuf[i]];
+    databuf[i] = vec_data[_indexbuf[i]];
 
   // Send actual values - NB meaning of _send and _recv count/offset is
   // reversed
-  int err = MPI_Neighbor_alltoallv(_databuf.data(), _recv_count.data(),
-                                   _recv_offset.data(), MPI_DOUBLE, vec_data,
+  int err = MPI_Neighbor_alltoallv(databuf.data(), _recv_count.data(),
+                                   _recv_offset.data(), _mpi_type, vec_data,
                                    _send_count.data(), _send_offset.data(),
-                                   MPI_DOUBLE, _neighbour_comm);
+                                   _mpi_type, _neighbour_comm);
   if (err != MPI_SUCCESS)
     throw std::runtime_error("MPI failure");
 }
 //-----------------------------------------------------------------------------
-void L2GMap::reverse_update(double* vec_data) const
+template <class T>
+void L2GMap<T>::reverse_update(T* vec_data) const
 {
   // Send values from ghost region of vector to remotes
   // accumulating in local vector.
+  std::vector<T> databuf(_indexbuf.size());
   int err = MPI_Neighbor_alltoallv(
-      vec_data, _send_count.data(), _send_offset.data(), MPI_DOUBLE,
-      _databuf.data(), _recv_count.data(), _recv_offset.data(), MPI_DOUBLE,
+      vec_data, _send_count.data(), _send_offset.data(), _mpi_type,
+      databuf.data(), _recv_count.data(), _recv_offset.data(), _mpi_type,
       _neighbour_comm);
   if (err != MPI_SUCCESS)
     throw std::runtime_error("MPI failure");
 
   for (std::size_t i = 0; i < _indexbuf.size(); ++i)
-    vec_data[_indexbuf[i]] += _databuf[i];
+    vec_data[_indexbuf[i]] += databuf[i];
 }
 //-----------------------------------------------------------------------------
-index_type L2GMap::global_to_local(index_type i) const
+template <class T>
+index_type L2GMap<T>::global_to_local(index_type i) const
 {
   const std::int64_t r0 = _ranges[_mpi_rank];
   const std::int64_t r1 = _ranges[_mpi_rank + 1];
@@ -146,17 +183,32 @@ index_type L2GMap::global_to_local(index_type i) const
   }
 }
 //-----------------------------------------------------------------------------
-std::int32_t L2GMap::local_size() const
+template <class T>
+std::int32_t L2GMap<T>::local_size() const
 {
   return (_ranges[_mpi_rank + 1] - _ranges[_mpi_rank] + _ghosts.size());
 }
 //-----------------------------------------------------------------------------
-std::int32_t L2GMap::local_size_noghost() const
+template <class T>
+std::int32_t L2GMap<T>::local_size_noghost() const
 {
   return (_ranges[_mpi_rank + 1] - _ranges[_mpi_rank]);
 }
 //-----------------------------------------------------------------------------
-std::int64_t L2GMap::global_size() const { return _ranges.back(); }
+template <class T>
+std::int64_t L2GMap<T>::global_size() const
+{
+  return _ranges.back();
+}
 //-----------------------------------------------------------------------------
-std::int64_t L2GMap::global_offset() const { return _ranges[_mpi_rank]; }
+template <class T>
+std::int64_t L2GMap<T>::global_offset() const
+{
+  return _ranges[_mpi_rank];
+}
 //-----------------------------------------------------------------------------
+// Explicit instantiation of classes
+template class spmv::L2GMap<double>;
+template class spmv::L2GMap<std::complex<double>>;
+template class spmv::L2GMap<float>;
+template class spmv::L2GMap<std::complex<float>>;

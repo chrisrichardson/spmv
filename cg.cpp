@@ -12,7 +12,7 @@
 std::tuple<Eigen::VectorXd, int>
 spmv::cg(MPI_Comm comm,
          Eigen::Ref<Eigen::SparseMatrix<double, Eigen::RowMajor>> A,
-         const std::shared_ptr<const spmv::L2GMap> l2g,
+         const std::shared_ptr<const spmv::L2GMap<double>> l2g,
          const Eigen::Ref<const Eigen::VectorXd>& b, int kmax, double rtol)
 {
   int mpi_rank;

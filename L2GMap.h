@@ -13,6 +13,7 @@ typedef Eigen::SparseMatrix<double>::StorageIndex index_type;
 namespace spmv
 {
 
+template <class T>
 class L2GMap
 {
 public:
@@ -39,10 +40,10 @@ public:
   index_type global_to_local(index_type i) const;
 
   // Ghost update - should be done each time *before* matvec
-  void update(double* vec_data) const;
+  void update(T* vec_data) const;
 
   // Update the other way, ghost -> local.
-  void reverse_update(double* vec_data) const;
+  void reverse_update(T* vec_data) const;
 
 private:
   // Ownership ranges for all processes on global comm
@@ -66,7 +67,9 @@ private:
   // Temporary data buffer for sending/receiving in local range
   // This is just scratch space, so marking as mutable
   // Or could change update to be non-const
-  mutable std::vector<double> _databuf;
+  //  mutable std::vector<T> _databuf;
+
+  MPI_Datatype _mpi_type;
 
   MPI_Comm _neighbour_comm;
 };
