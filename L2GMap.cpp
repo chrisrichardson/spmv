@@ -146,14 +146,12 @@ index_type L2GMap::global_to_local(index_type i) const
   }
 }
 //-----------------------------------------------------------------------------
-std::int32_t L2GMap::local_size() const
+std::int32_t L2GMap::local_size(bool ghosted) const
 {
-  return (_ranges[_mpi_rank + 1] - _ranges[_mpi_rank] + _ghosts.size());
-}
-//-----------------------------------------------------------------------------
-std::int32_t L2GMap::local_size_noghost() const
-{
-  return (_ranges[_mpi_rank + 1] - _ranges[_mpi_rank]);
+  if (ghosted)
+    return (_ranges[_mpi_rank + 1] - _ranges[_mpi_rank] + _ghosts.size());
+  else
+    return (_ranges[_mpi_rank + 1] - _ranges[_mpi_rank]);
 }
 //-----------------------------------------------------------------------------
 std::int64_t L2GMap::global_size() const { return _ranges.back(); }

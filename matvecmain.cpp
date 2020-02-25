@@ -68,7 +68,7 @@ int main(int argc, char** argv)
     std::cout << "Creating vector of size " << N << "\n";
 
   // Vector with extra space for ghosts at end
-  Eigen::VectorXd psp(l2g->local_size());
+  Eigen::VectorXd psp(l2g->local_size(true));
 
   // Set up values in local range
   int r0 = l2g->global_offset();
