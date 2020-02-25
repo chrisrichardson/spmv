@@ -70,15 +70,15 @@ L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
 
   // Find out who is a neighbour (needed for asymmetric graph, since some may
   // only receive but not send back).
-  std::vector<std::int32_t> recv_count(mpi_size);
-  MPI_Alltoall(ghost_count.data(), 1, MPI_INT, recv_count.data(), 1, MPI_INT,
+  std::vector<std::int32_t> remote_count(mpi_size);
+  MPI_Alltoall(ghost_count.data(), 1, MPI_INT, remote_count.data(), 1, MPI_INT,
                comm);
 
   std::vector<int> neighbours;
   for (std::size_t i = 0; i < ghost_count.size(); ++i)
   {
     const std::int32_t c = ghost_count[i];
-    const std::int32_t rc = recv_count[i];
+    const std::int32_t rc = remote_count[i];
     if (c > 0)
     {
       neighbours.push_back(i);
