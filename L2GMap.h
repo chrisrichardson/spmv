@@ -73,13 +73,6 @@ private:
   std::vector<index_type> _send_offset;
   std::vector<index_type> _recv_offset;
 
-  // Temporary data buffer for sending/receiving in local range
-  // This is just scratch space, so marking as mutable
-  // Or could change update to be non-const
-  //  mutable std::vector<T> _databuf;
-
-  MPI_Datatype _mpi_type;
-
   MPI_Comm _neighbour_comm;
 };
 

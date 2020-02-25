@@ -101,7 +101,6 @@ L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
   int count = _recv_offset.back();
 
   _indexbuf.resize(count);
-  //  _databuf.resize(count);
 
   // Send global indices to remote processes that own them
   int err = MPI_Neighbor_alltoallv(
