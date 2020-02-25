@@ -21,6 +21,8 @@
 int main(int argc, char** argv)
 {
   MPI_Init(&argc, &argv);
+  // Turn off profiling
+  MPI_Pcontrol(0);
 
   int mpi_rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
@@ -55,17 +57,20 @@ int main(int argc, char** argv)
   int max_its = 10000;
   double rtol = 1e-10;
 
+  // Turn on profiling for solver only
+  MPI_Pcontrol(1);
   timer_start = std::chrono::system_clock::now();
   auto [x, num_its] = spmv::cg(MPI_COMM_WORLD, A, l2g, b, max_its, rtol);
   timer_end = std::chrono::system_clock::now();
   timings["0.Solve"] += (timer_end - timer_start);
+  MPI_Pcontrol(0);
 
   double xnorm = x.squaredNorm();
   double xnorm_sum;
   MPI_Allreduce(&xnorm, &xnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
   // Test result - prepare ghosted vector
-  Eigen::VectorXd xsp(l2g->local_size());
+  Eigen::VectorXd xsp(l2g->local_size(true));
   xsp.head(A.rows()) = x;
   l2g->update(xsp.data());
 

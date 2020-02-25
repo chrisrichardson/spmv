@@ -63,11 +63,11 @@ int main(int argc, char** argv)
     std::cout << "Creating vector of size " << N << "\n";
 
   // Vector in "column space" with extra space for ghosts at end
-  Eigen::VectorXd psp(l2g->local_size());
+  Eigen::VectorXd psp(l2g->local_size(true));
 
   // Set up values in local range (column space)
   int r0 = l2g->global_offset();
-  for (int i = 0; i < l2g->local_size(); ++i)
+  for (int i = 0; i < l2g->local_size(true); ++i)
   {
     double z = (double)(i + r0) / double(N);
     psp[i] = exp(-10 * pow(5 * (z - 0.5), 2.0));
@@ -117,7 +117,7 @@ int main(int argc, char** argv)
   timer_end = std::chrono::system_clock::now();
   timings["2.SparseUpdate"] += (timer_end - timer_start);
 
-  Eigen::Map<Eigen::VectorXd> p(psp.data(), l2g->local_size_noghost());
+  Eigen::Map<Eigen::VectorXd> p(psp.data(), l2g->local_size(false));
   double pnorm = p.squaredNorm();
   double pnorm_sum;
   MPI_Allreduce(&pnorm, &pnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);

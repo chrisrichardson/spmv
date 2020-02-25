@@ -16,20 +16,28 @@ namespace spmv
 class L2GMap
 {
 public:
-  // Constructor
+  /// L2GMap (Local to Global Map)
+  /// @param comm MPI Comm
+  /// @param ranges Local range on each process
+  /// @param ghosts Ghost indices, owned by other processes
   L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
          const std::vector<index_type>& ghosts);
 
   // Destructor destroys neighbour comm
   ~L2GMap();
 
-  // Local size (without ghosts)
-  std::int32_t local_size_noghost() const;
+  // Disable copying (may cause problems with held neighbour comm)
+  L2GMap(const L2GMap& p) = delete;
+  L2GMap& operator=(const L2GMap& p) = delete;
 
-  // Total local size (including ghosts)
-  std::int32_t local_size() const;
+  /// Local size
+  /// @param ghosted - if set, return the full local size including ghost
+  /// entries
+  /// @return number of entries in local map
+  std::int32_t local_size(bool ghosted) const;
 
-  // Global size
+  /// Global size
+  /// @return global size of L2GMap
   std::int64_t global_size() const;
 
   // Global offset on this process
