@@ -43,7 +43,7 @@ spmv::cg(MPI_Comm comm,
   Eigen::VectorXd r(M);
   Eigen::VectorXd y(M);
   Eigen::VectorXd x(M);
-  Eigen::VectorXd psp(l2g->local_size());
+  Eigen::VectorXd psp(l2g->local_size(true));
   Eigen::Map<Eigen::VectorXd> p(psp.data(), M);
 
   // Assign to dense part of sparse vector
