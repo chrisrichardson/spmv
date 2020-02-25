@@ -60,9 +60,7 @@ int main(int argc, char** argv)
   // Turn on profiling for solver only
   MPI_Pcontrol(1);
   timer_start = std::chrono::system_clock::now();
-  Eigen::VectorXd x0(l2g->local_size(true));
-  x0.setZero();
-  auto [x, num_its] = spmv::cg(MPI_COMM_WORLD, A, l2g, b, x0, max_its, rtol);
+  auto [x, num_its] = spmv::cg(MPI_COMM_WORLD, A, l2g, b, max_its, rtol);
   timer_end = std::chrono::system_clock::now();
   timings["0.Solve"] += (timer_end - timer_start);
   MPI_Pcontrol(0);

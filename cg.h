@@ -27,13 +27,6 @@ class L2GMap;
 std::tuple<Eigen::VectorXd, int>
 cg(MPI_Comm comm, Eigen::Ref<Eigen::SparseMatrix<double, Eigen::RowMajor>> A,
    const std::shared_ptr<const L2GMap> l2g,
-   const Eigen::Ref<const Eigen::VectorXd>& b,
-   const Eigen::Ref<const Eigen::VectorXd>& x0, int max_its, double rtol);
-
-std::tuple<Eigen::VectorXd, int> cg_mkl_float(
-    MPI_Comm comm, Eigen::Ref<Eigen::SparseMatrix<double, Eigen::RowMajor>> A,
-    const std::shared_ptr<const spmv::L2GMap> l2g,
-    const Eigen::Ref<const Eigen::VectorXd>& b,
-    const Eigen::Ref<const Eigen::VectorXd>& x0, int kmax, double rtol);
+   const Eigen::Ref<const Eigen::VectorXd>& b, int max_its, double rtol);
 
 } // namespace spmv
