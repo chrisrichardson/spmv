@@ -65,16 +65,15 @@ int main(int argc, char** argv)
   timings["0.Solve"] += (timer_end - timer_start);
   MPI_Pcontrol(0);
 
-  double xnorm = x.squaredNorm();
+  // Get norm on local part of vector
+  double xnorm = x.head(l2g->local_size(false)).squaredNorm();
   double xnorm_sum;
   MPI_Allreduce(&xnorm, &xnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-  // Test result - prepare ghosted vector
-  Eigen::VectorXd xsp(l2g->local_size(true));
-  xsp.head(A.rows()) = x;
-  l2g->update(xsp.data());
+  // Test result 
+  l2g->update(x.data());
 
-  Eigen::VectorXd r = A * xsp - b;
+  Eigen::VectorXd r = A * x - b;
   double rnorm = r.squaredNorm();
   double rnorm_sum;
   MPI_Allreduce(&rnorm, &rnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);

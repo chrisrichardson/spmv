@@ -11,7 +11,7 @@
 //-----------------------------------------------------------------------------
 std::tuple<Eigen::VectorXd, int>
 spmv::cg(MPI_Comm comm,
-         Eigen::Ref<Eigen::SparseMatrix<double, Eigen::RowMajor>> A,
+         const Eigen::Ref<const Eigen::SparseMatrix<double, Eigen::RowMajor>>& A,
          const std::shared_ptr<const spmv::L2GMap> l2g,
          const Eigen::Ref<const Eigen::VectorXd>& b, int kmax, double rtol)
 {
@@ -20,14 +20,15 @@ spmv::cg(MPI_Comm comm,
 
 #ifdef EIGEN_USE_MKL_ALL
   sparse_matrix_t A_mkl;
+  int* outer = const_cast<int*>(A.outerIndexPtr());
   sparse_status_t status = mkl_sparse_d_create_csr(
-      &A_mkl, SPARSE_INDEX_BASE_ZERO, A.rows(), A.cols(), A.outerIndexPtr(),
-      A.outerIndexPtr() + 1, A.innerIndexPtr(), A.valuePtr());
-  assert(status == SPARSE_STATUS_SUCCESS);
+      &A_mkl, SPARSE_INDEX_BASE_ZERO, A.rows(), A.cols(), 
+      outer, outer + 1, const_cast<int*>(A.innerIndexPtr()), 
+      const_cast<double*>(A.valuePtr()));
+  if (status != SPARSE_STATUS_SUCCESS)
+    throw std::runtime_error("Could not create MKL matrix");
 
   status = mkl_sparse_optimize(A_mkl);
-  assert(status == SPARSE_STATUS_SUCCESS);
-
   if (status != SPARSE_STATUS_SUCCESS)
     throw std::runtime_error("Could not create MKL matrix");
 
@@ -41,14 +42,14 @@ spmv::cg(MPI_Comm comm,
   // Residual vector
   Eigen::VectorXd r(M);
   Eigen::VectorXd y(M);
-  Eigen::VectorXd x(M);
+  Eigen::VectorXd x(l2g->local_size(true));
   Eigen::VectorXd psp(l2g->local_size(true));
   Eigen::Map<Eigen::VectorXd> p(psp.data(), M);
 
   // Assign to dense part of sparse vector
-  r = b;
-  p = b;
   x.setZero();
+  r = b; // b - A * x0
+  p = r;
 
   double rnorm = r.squaredNorm();
   double rnorm0;
