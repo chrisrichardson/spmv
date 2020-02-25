@@ -23,6 +23,9 @@ public:
   // Destructor destroys neighbour comm
   ~L2GMap();
 
+  // Local size (without ghosts)
+  std::int32_t local_size_noghost() const;
+
   // Total local size (including ghosts)
   std::int32_t local_size() const;
 

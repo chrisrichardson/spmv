@@ -41,8 +41,8 @@ spmv::read_petsc_binary(MPI_Comm comm, std::string filename)
   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
   std::map<std::int32_t, std::int32_t> col_indices;
-  std::int64_t nrows_local;
-  std::vector<std::int32_t> ranges;
+  std::vector<std::int32_t> row_ranges, col_ranges;
+  std::int64_t ncols_local, nrows_local;
 
   std::ifstream file(filename.c_str(),
                      std::ios::in | std::ios::binary | std::ios::ate);
@@ -69,13 +69,15 @@ spmv::read_petsc_binary(MPI_Comm comm, std::string filename)
     int nrows = int_data[1];
     int ncols = int_data[2];
     int nnz_tot = int_data[3];
-    ranges = owner_ranges(mpi_size, nrows);
+    row_ranges = owner_ranges(mpi_size, nrows);
+    col_ranges = owner_ranges(mpi_size, ncols);
 
     if (mpi_rank == 0)
       std::cout << "Read file: " << filename << ": " << nrows << "x" << ncols
                 << " = " << nnz_tot << "\n";
 
-    nrows_local = ranges[mpi_rank + 1] - ranges[mpi_rank];
+    nrows_local = row_ranges[mpi_rank + 1] - row_ranges[mpi_rank];
+    ncols_local = col_ranges[mpi_rank + 1] - col_ranges[mpi_rank];
 
     // Reset memory block and read nnz per row for all rows
     memblock.resize(nrows * 4);
@@ -96,9 +98,10 @@ spmv::read_petsc_binary(MPI_Comm comm, std::string filename)
     // Get offset and size for data
     std::int64_t nnz_offset = 0;
     std::int64_t nnz_size = 0;
-    for (std::int64_t i = 0; i < ranges[mpi_rank]; ++i)
+    for (std::int64_t i = 0; i < row_ranges[mpi_rank]; ++i)
       nnz_offset += nnz[i];
-    for (std::int64_t i = ranges[mpi_rank]; i < ranges[mpi_rank + 1]; ++i)
+    for (std::int64_t i = row_ranges[mpi_rank]; i < row_ranges[mpi_rank + 1];
+         ++i)
       nnz_size += nnz[i];
 
     std::streampos value_data_pos
@@ -111,16 +114,16 @@ spmv::read_petsc_binary(MPI_Comm comm, std::string filename)
     file.read(memblock.data(), nnz_size * 4);
 
     std::int32_t c = 0;
-    // Assuming square matrix... fill local indices first
-    // FIXME: rectangular matrix
-    for (std::int64_t row = ranges[mpi_rank]; row < ranges[mpi_rank + 1]; ++row)
+    for (std::int64_t col = col_ranges[mpi_rank];
+         col < col_ranges[mpi_rank + 1]; ++col)
     {
-      col_indices.insert({row, c});
+      col_indices.insert({col, c});
       ++c;
     }
 
     // Map other columns
-    for (std::int64_t row = ranges[mpi_rank]; row < ranges[mpi_rank + 1]; ++row)
+    for (std::int64_t row = row_ranges[mpi_rank];
+         row < row_ranges[mpi_rank + 1]; ++row)
     {
       for (std::int64_t j = 0; j < nnz[row]; ++j)
       {
@@ -149,7 +152,8 @@ spmv::read_petsc_binary(MPI_Comm comm, std::string filename)
     // Pointer to values
     char* vptr = valuedata.data();
     ptr = memblock.data();
-    for (std::int64_t row = ranges[mpi_rank]; row < ranges[mpi_rank + 1]; ++row)
+    for (std::int64_t row = row_ranges[mpi_rank];
+         row < row_ranges[mpi_rank + 1]; ++row)
     {
       for (std::int64_t j = 0; j < nnz[row]; ++j)
       {
@@ -164,7 +168,7 @@ spmv::read_petsc_binary(MPI_Comm comm, std::string filename)
         std::int32_t col = col_indices[*((std::int32_t*)ptr)];
         ptr += 4;
 
-        A.insert(row - ranges[mpi_rank], col) = val;
+        A.insert(row - row_ranges[mpi_rank], col) = val;
       }
     }
   }
@@ -173,12 +177,12 @@ spmv::read_petsc_binary(MPI_Comm comm, std::string filename)
 
   A.makeCompressed();
 
-  std::vector<index_type> ghosts(col_indices.size() - nrows_local);
+  std::vector<index_type> ghosts(col_indices.size() - ncols_local);
   for (auto& q : col_indices)
-    if (q.first < ranges[mpi_rank] or q.first >= ranges[mpi_rank + 1])
-      ghosts[q.second - nrows_local] = q.first;
+    if (q.first < col_ranges[mpi_rank] or q.first >= col_ranges[mpi_rank + 1])
+      ghosts[q.second - ncols_local] = q.first;
 
-  auto l2g = std::make_shared<spmv::L2GMap>(comm, ranges, ghosts);
+  auto l2g = std::make_shared<spmv::L2GMap>(comm, col_ranges, ghosts);
 
   return {A, l2g};
 }
