@@ -31,6 +31,8 @@ add_executable(cgmain cgmain.cpp)
 target_link_libraries(cgmain ${PROJECT_NAME})
 add_executable(matvecmain matvecmain.cpp)
 target_link_libraries(matvecmain ${PROJECT_NAME})
+add_executable(restrictmain restrictmain.cpp)
+target_link_libraries(restrictmain ${PROJECT_NAME})
 
 add_library(${PROJECT_NAME} SHARED read_petsc.cpp CreateA.cpp L2GMap.cpp cg.cpp)
 
