@@ -13,7 +13,6 @@ typedef Eigen::SparseMatrix<double>::StorageIndex index_type;
 namespace spmv
 {
 
-template <class T>
 class L2GMap
 {
 public:
@@ -40,9 +39,11 @@ public:
   index_type global_to_local(index_type i) const;
 
   // Ghost update - should be done each time *before* matvec
+  template <typename T>
   void update(T* vec_data) const;
 
   // Update the other way, ghost -> local.
+  template <typename T>
   void reverse_update(T* vec_data) const;
 
 private:

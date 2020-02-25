@@ -6,11 +6,10 @@
 
 namespace spmv
 {
-template <class T>
 class L2GMap;
 }
 
 /// Create a simple matrix for testing
 std::tuple<Eigen::SparseMatrix<double, Eigen::RowMajor>,
-           std::shared_ptr<spmv::L2GMap<double>>>
+           std::shared_ptr<spmv::L2GMap>>
 create_A(MPI_Comm comm, int N);
