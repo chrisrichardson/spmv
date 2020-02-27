@@ -172,7 +172,7 @@ void L2GMap::update(T* vec_data) const
   cuda_CHECK(cudaMalloc(&databuf, _indexbuf.size() * sizeof(T)));
 #else
   std::vector<T> buf(_indexbuf.size());
-  databuf = buf.data();
+  T* databuf = buf.data();
 #endif
 
   // FIXME: How to do on GPU? Another SpMV?
