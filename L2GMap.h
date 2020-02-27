@@ -16,20 +16,28 @@ namespace spmv
 class L2GMap
 {
 public:
-  // Constructor
+  /// L2GMap (Local to Global Map)
+  /// @param comm MPI Comm
+  /// @param ranges Local range on each process
+  /// @param ghosts Ghost indices, owned by other processes
   L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
          const std::vector<index_type>& ghosts);
 
   // Destructor destroys neighbour comm
   ~L2GMap();
 
-  // Local size (without ghosts)
-  std::int32_t local_size_noghost() const;
+  // Disable copying (may cause problems with held neighbour comm)
+  L2GMap(const L2GMap& p) = delete;
+  L2GMap& operator=(const L2GMap& p) = delete;
 
-  // Total local size (including ghosts)
-  std::int32_t local_size() const;
+  /// Local size
+  /// @param ghosted - if set, return the full local size including ghost
+  /// entries
+  /// @return number of entries in local map
+  std::int32_t local_size(bool ghosted) const;
 
-  // Global size
+  /// Global size
+  /// @return global size of L2GMap
   std::int64_t global_size() const;
 
   // Global offset on this process
@@ -39,10 +47,12 @@ public:
   index_type global_to_local(index_type i) const;
 
   // Ghost update - should be done each time *before* matvec
-  void update(double* vec_data) const;
+  template <typename T>
+  void update(T* vec_data) const;
 
   // Update the other way, ghost -> local.
-  void reverse_update(double* vec_data) const;
+  template <typename T>
+  void reverse_update(T* vec_data) const;
 
 private:
   // Ownership ranges for all processes on global comm
@@ -62,11 +72,6 @@ private:
   std::vector<index_type> _recv_count;
   std::vector<index_type> _send_offset;
   std::vector<index_type> _recv_offset;
-
-  // Temporary data buffer for sending/receiving in local range
-  // This is just scratch space, so marking as mutable
-  // Or could change update to be non-const
-  mutable std::vector<double> _databuf;
 
   MPI_Comm _neighbour_comm;
 };

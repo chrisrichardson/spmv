@@ -68,7 +68,7 @@ int main(int argc, char** argv)
     std::cout << "Creating vector of size " << N << "\n";
 
   // Vector with extra space for ghosts at end
-  Eigen::VectorXd psp(l2g->local_size());
+  Eigen::VectorXd psp(l2g->local_size(true));
 
   // Set up values in local range
   int r0 = l2g->global_offset();
@@ -122,6 +122,10 @@ int main(int argc, char** argv)
   std::chrono::duration<double> total_time
       = std::chrono::duration<double>::zero();
   for (auto q : timings)
+    total_time += q.second;
+  timings["Total"] = total_time;
+
+  for (auto q : timings)
   {
     double q_local = q.second.count(), q_max, q_min;
     MPI_Reduce(&q_local, &q_max, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
@@ -133,17 +137,10 @@ int main(int argc, char** argv)
       std::cout << "[" << q.first << "]" << pad << q_min << '\t' << q_max
                 << "\n";
     }
-    total_time += q.second;
   }
 
-  double total_local = total_time.count(), total_min, total_max;
-  MPI_Reduce(&total_local, &total_max, 1, MPI_DOUBLE, MPI_MAX, 0,
-             MPI_COMM_WORLD);
-  MPI_Reduce(&total_local, &total_min, 1, MPI_DOUBLE, MPI_MIN, 0,
-             MPI_COMM_WORLD);
   if (mpi_rank == 0)
   {
-    std::cout << "[Total]           " << total_min << '\t' << total_max << "\n";
     std::cout << "----------------------------\n";
     std::cout << "norm = " << pnorm_sum << "\n";
   }

@@ -14,8 +14,9 @@
 
 #include "CreateA.h"
 #include "L2GMap.h"
-#include "cg.h"
+#include "jacobi.h"
 #include "read_petsc.h"
+#include "util.h"
 
 //-----------------------------------------------------------------------------
 int main(int argc, char** argv)
@@ -53,16 +54,17 @@ int main(int argc, char** argv)
   auto timer_end = std::chrono::system_clock::now();
   timings["0.ReadPetsc"] += (timer_end - timer_start);
 
-  int max_its = 10000;
-  double rtol = 1e-10;
+  int num_its = 10000;
+  //  double rtol = 1e-10;
 
-  // Turn on profiling for solver only
-  MPI_Pcontrol(1);
+  Eigen::VectorXd D = spmv::extract_diagonal(A).cwiseInverse();
+  Eigen::VectorXd x(l2g->local_size(true));
+
   timer_start = std::chrono::system_clock::now();
-  auto [x, num_its] = spmv::cg(MPI_COMM_WORLD, A, l2g, b, max_its, rtol);
+  for (int i = 0; i < num_its; ++i)
+    spmv::jacobi(A, l2g, x, b, D);
   timer_end = std::chrono::system_clock::now();
   timings["1.Solve"] += (timer_end - timer_start);
-  MPI_Pcontrol(0);
 
   // Get norm on local part of vector
   double xnorm = x.head(l2g->local_size(false)).squaredNorm();

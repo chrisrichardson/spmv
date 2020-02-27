@@ -1,9 +1,10 @@
 
 #include "util.h"
 
+using namespace spmv;
 //-----------------------------------------------------------------------------
 Eigen::VectorXd
-extract_diagonal(const Eigen::SparseMatrix<double, Eigen::RowMajor>& mat)
+spmv::extract_diagonal(const Eigen::SparseMatrix<double, Eigen::RowMajor>& mat)
 {
   const int* inner = mat.innerIndexPtr();
   const int* outer = mat.outerIndexPtr();

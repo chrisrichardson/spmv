@@ -16,7 +16,7 @@ project(${PROJECT_NAME})
 # Set CMake behavior
 cmake_policy(SET CMP0004 NEW)
 
-set(CMAKE_CXX_FLAGS "-Werror=all")
+set(CMAKE_CXX_FLAGS "-Werror=all -g")
 
 find_package(MPI REQUIRED)
 
@@ -29,12 +29,14 @@ include_directories(${EIGEN3_INCLUDE_DIR} ${MPI_INCLUDE_PATH})
 # Executables
 add_executable(cgmain cgmain.cpp)
 target_link_libraries(cgmain ${PROJECT_NAME})
-add_executable(matvecmain matvecmain.cpp)
+add_executable(matvecmain matvecmain.cpp CreateA.cpp)
 target_link_libraries(matvecmain ${PROJECT_NAME})
 add_executable(restrictmain restrictmain.cpp)
 target_link_libraries(restrictmain ${PROJECT_NAME})
+add_executable(jacobimain jacobimain.cpp)
+target_link_libraries(jacobimain ${PROJECT_NAME})
 
-add_library(${PROJECT_NAME} SHARED read_petsc.cpp CreateA.cpp L2GMap.cpp cg.cpp util.cpp)
+add_library(${PROJECT_NAME} SHARED read_petsc.cpp L2GMap.cpp cg.cpp util.cpp jacobi.cpp)
 
 if(BLAS_FOUND)
     target_compile_definitions(${PROJECT_NAME} PUBLIC EIGEN_USE_MKL_ALL)
