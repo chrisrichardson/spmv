@@ -9,12 +9,7 @@
 
 #include "L2GMap.h"
 #include "cg.h"
-
-#ifdef HAVE_CUDA
-#include <cublas_v2.h>
-#include <cuda_runtime.h>
-#include <cusparse_v2.h>
-#endif
+#include "cuda_check.h"
 
 //-----------------------------------------------------------------------------
 std::tuple<Eigen::VectorXd, int>
@@ -104,13 +99,6 @@ spmv::cg(MPI_Comm comm,
 
 #ifdef HAVE_CUDA
 //-----------------------------------------------------------------------------
-#define cuda_CHECK(x)                                                          \
-  if (x != cudaSuccess)                                                        \
-  throw std::runtime_error(#x " failed")
-#define cusparse_CHECK(x)                                                      \
-  if (x != CUSPARSE_STATUS_SUCCESS)                                            \
-  throw std::runtime_error(#x " failed")
-//-----------------------------------------------------------------------------
 std::tuple<Eigen::VectorXd, int>
 spmv::cg_cuda(MPI_Comm comm,
               Eigen::Ref<Eigen::SparseMatrix<double, Eigen::RowMajor>> A,
@@ -120,9 +108,24 @@ spmv::cg_cuda(MPI_Comm comm,
   int mpi_rank;
   MPI_Comm_rank(comm, &mpi_rank);
 
+  // Get number of local gpus
+  int ngpus;
+  cuda_CHECK(cudaGetDeviceCount(&ngpus));
+
+  MPI_Comm split_comm;
+  MPI_Comm_split_type(comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
+                      &split_comm);
+  int ncores;
+  MPI_Comm_size(split_comm, &ncores);
+  std::cout << "ncores = " << ncores << "\n";
+  std::cout << "ngpus = " << ngpus << "\n";
+
+  // Hack
+  cuda_CHECK(cudaSetDevice(mpi_rank));
+
   // Initialise cuBLAS
   cublasHandle_t blas_handle;
-  cublasCreate(&blas_handle);
+  cublas_CHECK(cublasCreate(&blas_handle));
 
   // Copy A over to gpu
   cusparseHandle_t handle;
@@ -178,7 +181,7 @@ spmv::cg_cuda(MPI_Comm comm,
   double* x;
   double zero = 0.0;
   cuda_CHECK(cudaMalloc(&x, rows * sizeof(double)));
-  cublasDscal(blas_handle, rows, &zero, x, 1);
+  cublas_CHECK(cublasDscal(blas_handle, rows, &zero, x, 1));
 
   // allocate scratch space
   size_t bufsize;
@@ -199,7 +202,7 @@ spmv::cg_cuda(MPI_Comm comm,
       cudaMemcpy(psp, r, rows * sizeof(double), cudaMemcpyDeviceToDevice));
 
   double rnorm; // = r.squaredNorm();
-  cublasDdot(blas_handle, rows, r, 1, r, 1, &rnorm);
+  cublas_CHECK(cublasDdot(blas_handle, rows, r, 1, r, 1, &rnorm));
   double rnorm0;
   MPI_Allreduce(&rnorm, &rnorm0, 1, MPI_DOUBLE, MPI_SUM, comm);
 
@@ -215,7 +218,7 @@ spmv::cg_cuda(MPI_Comm comm,
 
     // Calculate alpha = r.r/p.y
     double pdoty; // = p.dot(y);
-    cublasDdot(blas_handle, rows, psp, 1, y, 1, &pdoty);
+    cublas_CHECK(cublasDdot(blas_handle, rows, psp, 1, y, 1, &pdoty));
 
     double pdoty_sum;
     MPI_Allreduce(&pdoty, &pdoty_sum, 1, MPI_DOUBLE, MPI_SUM, comm);
@@ -223,15 +226,15 @@ spmv::cg_cuda(MPI_Comm comm,
 
     // Update x and r
     //    x += alpha * p;
-    cublasDaxpy(blas_handle, rows, &alpha, psp, 1, x, 1);
+    cublas_CHECK(cublasDaxpy(blas_handle, rows, &alpha, psp, 1, x, 1));
 
     //    r -= alpha * y;
     alpha = -alpha;
-    cublasDaxpy(blas_handle, rows, &alpha, y, 1, r, 1);
+    cublas_CHECK(cublasDaxpy(blas_handle, rows, &alpha, y, 1, r, 1));
 
     // Update rnorm
     //    rnorm = r.squaredNorm();
-    cublasDdot(blas_handle, rows, r, 1, r, 1, &rnorm);
+    cublas_CHECK(cublasDdot(blas_handle, rows, r, 1, r, 1, &rnorm));
     double rnorm_new;
     MPI_Allreduce(&rnorm, &rnorm_new, 1, MPI_DOUBLE, MPI_SUM, comm);
     double beta = rnorm_new / rnorm_old;
@@ -241,8 +244,8 @@ spmv::cg_cuda(MPI_Comm comm,
     //    p *= beta;
     //    p += r;
     double one = 1.0;
-    cublasDscal(blas_handle, rows, &beta, psp, 1);
-    cublasDaxpy(blas_handle, rows, &one, r, 1, psp, 1);
+    cublas_CHECK(cublasDscal(blas_handle, rows, &beta, psp, 1));
+    cublas_CHECK(cublasDaxpy(blas_handle, rows, &one, r, 1, psp, 1));
 
     if (rnorm_new / rnorm0 < rtol)
     {

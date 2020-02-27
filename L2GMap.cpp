@@ -2,9 +2,11 @@
 // SPDX-License-Identifier:    LGPL-3.0-or-later
 
 #include "L2GMap.h"
+#include "cuda_check.h"
 #include <algorithm>
 #include <complex>
 #include <iostream>
+#include <numeric>
 #include <set>
 #include <vector>
 
@@ -120,6 +122,34 @@ L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
   // Add local_range onto _send_offset (ghosts will be at end of range)
   for (index_type& s : _send_offset)
     s += local_size;
+
+  // #ifdef HAVE_CUDA
+  //   cusparseHandle_t handle;
+  //   cusparseSpMatDescr_t spmat;
+
+  //   double* value;
+  //   int *inner, *outer;
+  //   cuda_CHECK(cudaMalloc(&value, _indexbuf.size() * sizeof(double)));
+  //   cuda_CHECK(cudaMalloc(&inner, _indexbuf.size() * sizeof(int)));
+  //   cuda_CHECK(cudaMalloc(&outer, (_indexbuf.size() + 1) * sizeof(int)));
+
+  //   std::vector<double> ones(_indexbuf.size(), 1.0);
+  //   std::vector<int> outers(_indexbuf.size() + 1);
+  //   std::iota(outers.begin(), outers.end(), 0);
+  //   cuda_CHECK(cudaMemcpy(value, ones.data(), ones.size() * sizeof(double),
+  //                         cudaMemcpyHostToDevice));
+  //   cuda_CHECK(cudaMemcpy(inner, _indexbuf.data(), _indexbuf.size() *
+  //   sizeof(int),
+  //                         cudaMemcpyHostToDevice));
+  //   cuda_CHECK(cudaMemcpy(outer, outers.data(), outers.size() * sizeof(int),
+  //                         cudaMemcpyHostToDevice));
+
+  //   cusparse_CHECK(cusparseCreateCsr(&spmat, _indexbuf.size(),
+  //   _ghosts.size(),
+  //                                    _indexbuf.size(), outer, inner, value,
+  //                                    CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
+  //                                    CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F));
+  // #endif
 }
 //-----------------------------------------------------------------------------
 L2GMap::~L2GMap() { MPI_Comm_free(&_neighbour_comm); }
@@ -127,25 +157,39 @@ L2GMap::~L2GMap() { MPI_Comm_free(&_neighbour_comm); }
 template <typename T>
 void L2GMap::update(T* vec_data) const
 {
+  // In serial, nothing to do
+  if (_indexbuf.size() == 0)
+    return;
+
   MPI_Datatype data_type = mpi_type<T>();
 
   // Get data from local indices to send to other processes, landing in their
   // ghost region
 
-  // NB on GPU, vec_data is "device memory", so should also be _databuf?
-  std::vector<T> databuf(_indexbuf.size());
+  // NB on GPU, vec_data is "device memory", so should also be databuf
+#ifdef HAVE_CUDA
+  T* databuf;
+  cuda_CHECK(cudaMalloc(&databuf, _indexbuf.size() * sizeof(T)));
+#else
+  std::vector<T> buf(_indexbuf.size());
+  databuf = buf.data();
+#endif
 
+  // FIXME: How to do on GPU? Another SpMV?
   for (std::size_t i = 0; i < _indexbuf.size(); ++i)
     databuf[i] = vec_data[_indexbuf[i]];
 
   // Send actual values - NB meaning of _send and _recv count/offset is
   // reversed
-  int err = MPI_Neighbor_alltoallv(databuf.data(), _recv_count.data(),
-                                   _recv_offset.data(), data_type, vec_data,
-                                   _send_count.data(), _send_offset.data(),
-                                   data_type, _neighbour_comm);
+  int err = MPI_Neighbor_alltoallv(
+      databuf, _recv_count.data(), _recv_offset.data(), data_type, vec_data,
+      _send_count.data(), _send_offset.data(), data_type, _neighbour_comm);
   if (err != MPI_SUCCESS)
     throw std::runtime_error("MPI failure");
+
+#ifdef HAVE_CUDA
+  cuda_CHECK(cudaFree(&databuf));
+#endif
 }
 //-----------------------------------------------------------------------------
 template <typename T>

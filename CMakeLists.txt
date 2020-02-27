@@ -17,7 +17,7 @@ project(${PROJECT_NAME})
 cmake_policy(SET CMP0004 NEW)
 # cmake_policy(SET CMP0076 NEW)
 
-set(CMAKE_CXX_FLAGS "-Werror=all")
+set(CMAKE_CXX_FLAGS "-g -Werror=all")
 
 find_package(MPI REQUIRED)
 
