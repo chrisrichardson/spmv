@@ -9,11 +9,11 @@
 #include "cg.h"
 
 //-----------------------------------------------------------------------------
-std::tuple<Eigen::VectorXd, int>
-spmv::cg(MPI_Comm comm,
-         const Eigen::Ref<const Eigen::SparseMatrix<double, Eigen::RowMajor>>& A,
-         const std::shared_ptr<const spmv::L2GMap> l2g,
-         const Eigen::Ref<const Eigen::VectorXd>& b, int kmax, double rtol)
+std::tuple<Eigen::VectorXd, int> spmv::cg(
+    MPI_Comm comm,
+    const Eigen::Ref<const Eigen::SparseMatrix<double, Eigen::RowMajor>>& A,
+    const std::shared_ptr<const spmv::L2GMap> l2g,
+    const Eigen::Ref<const Eigen::VectorXd>& b, int kmax, double rtol)
 {
   int mpi_rank;
   MPI_Comm_rank(comm, &mpi_rank);
@@ -22,9 +22,8 @@ spmv::cg(MPI_Comm comm,
   sparse_matrix_t A_mkl;
   int* outer = const_cast<int*>(A.outerIndexPtr());
   sparse_status_t status = mkl_sparse_d_create_csr(
-      &A_mkl, SPARSE_INDEX_BASE_ZERO, A.rows(), A.cols(), 
-      outer, outer + 1, const_cast<int*>(A.innerIndexPtr()), 
-      const_cast<double*>(A.valuePtr()));
+      &A_mkl, SPARSE_INDEX_BASE_ZERO, A.rows(), A.cols(), outer, outer + 1,
+      const_cast<int*>(A.innerIndexPtr()), const_cast<double*>(A.valuePtr()));
   if (status != SPARSE_STATUS_SUCCESS)
     throw std::runtime_error("Could not create MKL matrix");
 

@@ -177,7 +177,7 @@ spmv::read_petsc_binary(MPI_Comm comm, std::string filename)
 
   A.makeCompressed();
 
-  std::vector<index_type> ghosts(col_indices.size() - ncols_local);
+  std::vector<std::int64_t> ghosts(col_indices.size() - ncols_local);
   for (auto& q : col_indices)
     if (q.first < col_ranges[mpi_rank] or q.first >= col_ranges[mpi_rank + 1])
       ghosts[q.second - ncols_local] = q.first;

@@ -32,6 +32,11 @@ int main(int argc, char** argv)
   auto timer_start = std::chrono::system_clock::now();
   // Read in a PETSc binary format matrix
   auto [R, l2g] = spmv::read_petsc_binary(MPI_COMM_WORLD, "R4.dat");
+  auto [A, l2g_A] = spmv::read_petsc_binary(MPI_COMM_WORLD, "A4.dat");
+  std::cout << "A.rows() = " << A.rows() << "\n";
+  std::cout << "R.rows() = " << R.rows() << "\n";
+  std::cout << "A.cols_local = " << l2g_A->local_size(true) << "\n";
+  std::cout << "R.cols_local = " << l2g->local_size(true) << "\n";
 
   // Get local and global sizes
   std::int64_t M = R.rows();
@@ -157,6 +162,7 @@ int main(int argc, char** argv)
 
   // Need to destroy L2G here before MPI_Finalize, because it holds a comm
   l2g.reset();
+  l2g_A.reset();
 
   MPI_Finalize();
   return 0;

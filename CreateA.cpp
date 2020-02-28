@@ -86,7 +86,7 @@ create_A(MPI_Comm comm, int N)
       ghost_indices.insert(global_index);
   }
 
-  std::vector<index_type> ghosts(ghost_indices.begin(), ghost_indices.end());
+  std::vector<std::int64_t> ghosts(ghost_indices.begin(), ghost_indices.end());
   auto l2g = std::make_shared<spmv::L2GMap>(comm, ranges, ghosts);
 
   // Rebuild A using local indices

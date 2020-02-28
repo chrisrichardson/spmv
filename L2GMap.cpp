@@ -16,6 +16,11 @@ template <typename T>
 MPI_Datatype mpi_type();
 
 template <>
+MPI_Datatype mpi_type<int>()
+{
+  return MPI_INT;
+}
+template <>
 MPI_Datatype mpi_type<float>()
 {
   return MPI_FLOAT;
@@ -38,7 +43,7 @@ MPI_Datatype mpi_type<std::complex<double>>()
 } // namespace
 //-----------------------------------------------------------------------------
 L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
-               const std::vector<index_type>& ghosts)
+               const std::vector<std::int64_t>& ghosts)
     : _ranges(ranges), _ghosts(ghosts)
 {
   int mpi_size;
@@ -203,12 +208,14 @@ std::int64_t L2GMap::global_size() const { return _ranges.back(); }
 std::int64_t L2GMap::global_offset() const { return _ranges[_mpi_rank]; }
 //-----------------------------------------------------------------------------
 // Explicit instantiation
+template void spmv::L2GMap::update<int>(int*) const;
 template void spmv::L2GMap::update<double>(double*) const;
 template void spmv::L2GMap::update<float>(float*) const;
 template void
 spmv::L2GMap::update<std::complex<float>>(std::complex<float>*) const;
 template void
 spmv::L2GMap::update<std::complex<double>>(std::complex<double>*) const;
+template void spmv::L2GMap::reverse_update<int>(int*) const;
 template void spmv::L2GMap::reverse_update<double>(double*) const;
 template void spmv::L2GMap::reverse_update<float>(float*) const;
 template void

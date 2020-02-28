@@ -21,7 +21,7 @@ public:
   /// @param ranges Local range on each process
   /// @param ghosts Ghost indices, owned by other processes
   L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
-         const std::vector<index_type>& ghosts);
+         const std::vector<std::int64_t>& ghosts);
 
   // Destructor destroys neighbour comm
   ~L2GMap();
@@ -54,6 +54,42 @@ public:
   template <typename T>
   void reverse_update(T* vec_data) const;
 
+  // Access to neighbour comm
+  const MPI_Comm& neighbour_comm() const
+  {
+    return _neighbour_comm;
+  }
+
+  // Access global indices of ghosts
+  const std::vector<std::int64_t>& ghosts() const
+  {
+    return _ghosts;
+  }
+
+  // Access the "number of ghost entries per neighbour" list
+  const std::vector<index_type>& num_ghosts_per_neighbour() const
+  {
+    return _send_count;
+  }
+
+  // Access the "number of owned entries per neighbour" list
+  const std::vector<index_type>& num_owned_per_neighbour() const
+  {
+    return _recv_count;
+  }
+
+  // Access the indexbuf
+  const std::vector<index_type>& indexbuf() const
+  {
+    return _indexbuf;
+  }
+
+  // Access the ranges
+  const std::vector<index_type>& ranges() const
+  {
+    return _ranges;
+  }
+
 private:
   // Ownership ranges for all processes on global comm
   std::vector<index_type> _ranges;
@@ -64,7 +100,7 @@ private:
 
   // Forward and reverse maps for ghosts
   std::map<index_type, index_type> _global_to_local;
-  std::vector<index_type> _ghosts;
+  std::vector<std::int64_t> _ghosts;
 
   // Indices, counts and offsets for communication
   std::vector<index_type> _indexbuf;
