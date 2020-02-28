@@ -32,10 +32,13 @@ int main(int argc, char** argv)
   auto timer_start = std::chrono::system_clock::now();
   // Read in a PETSc binary format matrix
   auto [R, l2g] = spmv::read_petsc_binary(MPI_COMM_WORLD, "R4.dat");
+  auto q = spmv::read_petsc_binary_vector(MPI_COMM_WORLD, "b4.dat");
 
   // Get local and global sizes
   std::int64_t M = R.rows();
   std::int64_t N = l2g->global_size();
+
+  std::cout << "Vector = " << q.size() << " " << M << "\n";
 
 #ifdef EIGEN_USE_MKL_ALL
   sparse_matrix_t R_mkl;
@@ -83,27 +86,7 @@ int main(int argc, char** argv)
   double pnorm_sum, qnorm_sum;
   for (int i = 0; i < 10; ++i)
   {
-    // Prolongate
-    Eigen::VectorXd q(M);
-    timer_start = std::chrono::system_clock::now();
-    l2g->update(psp.data());
-    timer_end = std::chrono::system_clock::now();
-    timings["2.SparseUpdate"] += (timer_end - timer_start);
-
-    timer_start = std::chrono::system_clock::now();
-#ifdef EIGEN_USE_MKL_ALL
-    mkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, R_mkl, mat_desc,
-                    psp.data(), 0.0, q.data());
-#else
-    q = R * psp;
-#endif
-    timer_end = std::chrono::system_clock::now();
-    timings["3.SpMV"] += (timer_end - timer_start);
-
-    double qnorm = q.squaredNorm();
-    MPI_Allreduce(&qnorm, &qnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-    // Reverse (restrict)
+    // Restrict
     timer_start = std::chrono::system_clock::now();
 #ifdef EIGEN_USE_MKL_ALL
     mkl_sparse_d_mv(SPARSE_OPERATION_TRANSPOSE, 1.0, R_mkl, mat_desc, q.data(),
@@ -122,6 +105,25 @@ int main(int argc, char** argv)
     Eigen::Map<Eigen::VectorXd> p(psp.data(), l2g->local_size(false));
     double pnorm = p.squaredNorm();
     MPI_Allreduce(&pnorm, &pnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+    // Prolongate
+    timer_start = std::chrono::system_clock::now();
+    l2g->update(psp.data());
+    timer_end = std::chrono::system_clock::now();
+    timings["2.SparseUpdate"] += (timer_end - timer_start);
+
+    timer_start = std::chrono::system_clock::now();
+#ifdef EIGEN_USE_MKL_ALL
+    mkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, R_mkl, mat_desc,
+                    psp.data(), 0.0, q.data());
+#else
+    q = R * psp;
+#endif
+    timer_end = std::chrono::system_clock::now();
+    timings["3.SpMV"] += (timer_end - timer_start);
+
+    double qnorm = q.squaredNorm();
+    MPI_Allreduce(&qnorm, &qnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
   }
 
   if (mpi_rank == 0)
