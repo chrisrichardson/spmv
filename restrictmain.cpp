@@ -68,14 +68,6 @@ int main(int argc, char** argv)
   // Vector in "column space" with extra space for ghosts at end
   Eigen::VectorXd psp(l2g->local_size(true));
 
-  // Set up values in local range (column space)
-  int r0 = l2g->global_offset();
-  for (int i = 0; i < l2g->local_size(false); ++i)
-  {
-    double z = (double)(i + r0) / double(N);
-    psp[i] = exp(-10 * pow(5 * (z - 0.5), 2.0));
-  }
-
   timer_end = std::chrono::system_clock::now();
   timings["1.VecCreate"] += (timer_end - timer_start);
 
