@@ -35,10 +35,14 @@ public:
     return Eigen::Product<MKLSparseMatrix,Rhs,Eigen::AliasFreeProduct>(*this, x.derived());
   }
 
-  MKLSparseMatrix(Eigen::SparseMatrix<double> &mat) : mp_mat(mat) {
+  MKLSparseMatrix(const Eigen::SparseMatrix<double, Eigen::RowMajor> &mat) : mp_mat(mat) {
     mkl_sparse_d_create_csr(
-        &mkl, SPARSE_INDEX_BASE_ZERO, rows(), cols(), mp_mat.outerIndexPtr(),
-        mp_mat.outerIndexPtr() + 1, mp_mat.innerIndexPtr(), mp_mat.valuePtr());
+        &mkl, SPARSE_INDEX_BASE_ZERO, rows(), cols(), 
+        const_cast<StorageIndex*>(mp_mat.outerIndexPtr()),
+        const_cast<StorageIndex*>(mp_mat.outerIndexPtr()) + 1,
+        const_cast<StorageIndex*>(mp_mat.innerIndexPtr()),
+        const_cast<Scalar*>(mp_mat.valuePtr())
+        );
 
     mkl_sparse_optimize(mkl);
 
@@ -49,7 +53,7 @@ public:
   sparse_matrix_t mkl;
   struct matrix_descr desc;
 private:
-  Eigen::SparseMatrix<double> &mp_mat;
+  const Eigen::SparseMatrix<double> &mp_mat;
 };
 
 
