@@ -11,7 +11,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(PROJECT_NAME spmv)
-project(${PROJECT_NAME})
+project(${PROJECT_NAME} C CXX CUDA)
 
 # Set CMake behavior
 cmake_policy(SET CMP0004 NEW)
@@ -36,7 +36,7 @@ add_executable(restrictmain restrictmain.cpp)
 target_link_libraries(restrictmain ${PROJECT_NAME})
 
 # Library
-add_library(${PROJECT_NAME} SHARED read_petsc.cpp CreateA.cpp L2GMap.cpp cg.cpp)
+add_library(${PROJECT_NAME} SHARED read_petsc.cpp CreateA.cpp L2GMap.cpp cg.cpp shuffle_kernel.cu)
 
 if(BLAS_FOUND)
   target_compile_definitions(${PROJECT_NAME} PUBLIC EIGEN_USE_MKL_ALL)

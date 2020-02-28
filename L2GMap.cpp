@@ -10,6 +10,8 @@
 #include <set>
 #include <vector>
 
+#include "shuffle_kernel.h"
+
 using namespace spmv;
 
 namespace
@@ -176,8 +178,12 @@ void L2GMap::update(T* vec_data) const
 #endif
 
   // FIXME: How to do on GPU? Another SpMV?
+#ifdef HAVE_CUDA
+  do_shuffle(databuf, vec_data, _indexbuf);
+#else
   for (std::size_t i = 0; i < _indexbuf.size(); ++i)
     databuf[i] = vec_data[_indexbuf[i]];
+#endif
 
   // Send actual values - NB meaning of _send and _recv count/offset is
   // reversed
@@ -239,14 +245,14 @@ std::int64_t L2GMap::global_offset() const { return _ranges[_mpi_rank]; }
 //-----------------------------------------------------------------------------
 // Explicit instantiation
 template void spmv::L2GMap::update<double>(double*) const;
-template void spmv::L2GMap::update<float>(float*) const;
-template void
-spmv::L2GMap::update<std::complex<float>>(std::complex<float>*) const;
-template void
-spmv::L2GMap::update<std::complex<double>>(std::complex<double>*) const;
+//template void spmv::L2GMap::update<float>(float*) const;
+//template void
+//spmv::L2GMap::update<std::complex<float>>(std::complex<float>*) const;
+//template void
+//spmv::L2GMap::update<std::complex<double>>(std::complex<double>*) const;
 template void spmv::L2GMap::reverse_update<double>(double*) const;
-template void spmv::L2GMap::reverse_update<float>(float*) const;
-template void
-spmv::L2GMap::reverse_update<std::complex<float>>(std::complex<float>*) const;
-template void
-spmv::L2GMap::reverse_update<std::complex<double>>(std::complex<double>*) const;
+//template void spmv::L2GMap::reverse_update<float>(float*) const;
+//template void
+//spmv::L2GMap::reverse_update<std::complex<float>>(std::complex<float>*) const;
+//template void
+//spmv::L2GMap::reverse_update<std::complex<double>>(std::complex<double>*) const;
