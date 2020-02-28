@@ -3,7 +3,7 @@
 __global__ void shuffle_kernel(double *databuf, double *vec_data, int *_indexbuf, int indexbuf_sz) {
     size_t i = threadIdx.x + blockIdx.x * blockDim.x;
 
-    if (i > indexbuf_sz)
+    if (i < indexbuf_sz)
         return;
 
     databuf[i] = vec_data[_indexbuf[i]];
