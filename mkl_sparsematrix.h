@@ -27,33 +27,43 @@ public:
     IsRowMajor = true
   };
 
-  Index rows() const { return mp_mat.rows(); }
-  Index cols() const { return mp_mat.cols(); }
+  Index rows() const { return _rows; }
+  Index cols() const { return _cols; }
+  Index nonZero() const { return _nnz; }
 
   template<typename Rhs>
   Eigen::Product<MKLSparseMatrix,Rhs,Eigen::AliasFreeProduct> operator*(const Eigen::MatrixBase<Rhs>& x) const {
     return Eigen::Product<MKLSparseMatrix,Rhs,Eigen::AliasFreeProduct>(*this, x.derived());
   }
 
-  MKLSparseMatrix(const Eigen::SparseMatrix<double, Eigen::RowMajor> &mat) : mp_mat(mat) {
-    mkl_sparse_d_create_csr(
-        &mkl, SPARSE_INDEX_BASE_ZERO, rows(), cols(), 
-        const_cast<StorageIndex*>(mp_mat.outerIndexPtr()),
-        const_cast<StorageIndex*>(mp_mat.outerIndexPtr()) + 1,
-        const_cast<StorageIndex*>(mp_mat.innerIndexPtr()),
-        const_cast<Scalar*>(mp_mat.valuePtr())
-        );
+  MKLSparseMatrix(const Eigen::SparseMatrix<Scalar, Eigen::RowMajor> &mat) : 
+  _rows(mat.rows()), _cols(mat.cols()), _nnz(mat.nonZeros()) {
+    auto &mat_ = const_cast<Eigen::SparseMatrix<Scalar, Eigen::RowMajor>&>(mat);
 
-    mkl_sparse_optimize(mkl);
+    sparse_status_t status = mkl_sparse_d_create_csr(
+        &mkl, SPARSE_INDEX_BASE_ZERO, rows(), cols(), 
+        mat_.outerIndexPtr(), mat_.outerIndexPtr() + 1,
+        mat_.innerIndexPtr(), mat_.valuePtr());
+    if (status != SPARSE_STATUS_SUCCESS)
+      throw std::runtime_error("mkl sparse create failed");
+
+/*
+    status = mkl_sparse_optimize(mkl);
+    if (status != SPARSE_STATUS_SUCCESS)
+      throw std::runtime_error("mkl sparse optimise failed");
+*/
 
     desc.type = SPARSE_MATRIX_TYPE_GENERAL;
     desc.diag = SPARSE_DIAG_NON_UNIT;
+  }
+  ~MKLSparseMatrix() {
+    mkl_sparse_destroy(mkl);
   }
 
   sparse_matrix_t mkl;
   struct matrix_descr desc;
 private:
-  const Eigen::SparseMatrix<double> &mp_mat;
+  const StorageIndex _rows, _cols, _nnz;
 };
 
 
@@ -68,13 +78,15 @@ namespace internal {
     typedef typename Product<MKLSparseMatrix,Rhs>::Scalar Scalar;
 
     template<typename Dest>
-    static void scaleAndAddTo(Dest& x, const MKLSparseMatrix& A, const Rhs& y, const Scalar& alpha)
+    static void scaleAndAddTo(Dest& y, const MKLSparseMatrix& A, const Rhs& x, const Scalar& alpha)
     {
-        assert(alpha==Scalar(1) && "scaling is not implemented");
-        EIGEN_ONLY_USED_FOR_DEBUG(alpha);
-        mkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A.mkl, A.desc,
-                        const_cast<Scalar*>(x.data()), 0.0, 
-                        const_cast<Scalar*>(y.data()));
+      auto _x = const_cast<Scalar*>(x.data());
+      auto _y = const_cast<Scalar*>(y.data());
+
+      sparse_status_t status = mkl_sparse_d_mv(
+          SPARSE_OPERATION_NON_TRANSPOSE, alpha, A.mkl, A.desc, _x, 0.0, _y);
+      if (status != SPARSE_STATUS_SUCCESS)
+        throw std::runtime_error("mkl sparse mv failed");
     }
   };
 
