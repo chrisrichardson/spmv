@@ -125,33 +125,11 @@ L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
   for (index_type& s : _send_offset)
     s += local_size;
 
-  // #ifdef HAVE_CUDA
-  //   cusparseHandle_t handle;
-  //   cusparseSpMatDescr_t spmat;
-
-  //   double* value;
-  //   int *inner, *outer;
-  //   cuda_CHECK(cudaMalloc(&value, _indexbuf.size() * sizeof(double)));
-  //   cuda_CHECK(cudaMalloc(&inner, _indexbuf.size() * sizeof(int)));
-  //   cuda_CHECK(cudaMalloc(&outer, (_indexbuf.size() + 1) * sizeof(int)));
-
-  //   std::vector<double> ones(_indexbuf.size(), 1.0);
-  //   std::vector<int> outers(_indexbuf.size() + 1);
-  //   std::iota(outers.begin(), outers.end(), 0);
-  //   cuda_CHECK(cudaMemcpy(value, ones.data(), ones.size() * sizeof(double),
-  //                         cudaMemcpyHostToDevice));
-  //   cuda_CHECK(cudaMemcpy(inner, _indexbuf.data(), _indexbuf.size() *
-  //   sizeof(int),
-  //                         cudaMemcpyHostToDevice));
-  //   cuda_CHECK(cudaMemcpy(outer, outers.data(), outers.size() * sizeof(int),
-  //                         cudaMemcpyHostToDevice));
-
-  //   cusparse_CHECK(cusparseCreateCsr(&spmat, _indexbuf.size(),
-  //   _ghosts.size(),
-  //                                    _indexbuf.size(), outer, inner, value,
-  //                                    CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
-  //                                    CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F));
-  // #endif
+#ifdef HAVE_CUDA
+  cudaMalloc(&_indexbuf_d, sizeof(int) * _indexbuf.size());
+  cudaMemcpy(_indexbuf_d, _indexbuf.data(), sizeof(int) * _indexbuf.size(),
+             cudaMemcpyHostToDevice);
+#endif
 }
 //-----------------------------------------------------------------------------
 L2GMap::~L2GMap() { MPI_Comm_free(&_neighbour_comm); }
@@ -245,14 +223,15 @@ std::int64_t L2GMap::global_offset() const { return _ranges[_mpi_rank]; }
 //-----------------------------------------------------------------------------
 // Explicit instantiation
 template void spmv::L2GMap::update<double>(double*) const;
-//template void spmv::L2GMap::update<float>(float*) const;
-//template void
-//spmv::L2GMap::update<std::complex<float>>(std::complex<float>*) const;
-//template void
-//spmv::L2GMap::update<std::complex<double>>(std::complex<double>*) const;
+// template void spmv::L2GMap::update<float>(float*) const;
+// template void
+// spmv::L2GMap::update<std::complex<float>>(std::complex<float>*) const;
+// template void
+// spmv::L2GMap::update<std::complex<double>>(std::complex<double>*) const;
 template void spmv::L2GMap::reverse_update<double>(double*) const;
-//template void spmv::L2GMap::reverse_update<float>(float*) const;
-//template void
-//spmv::L2GMap::reverse_update<std::complex<float>>(std::complex<float>*) const;
-//template void
-//spmv::L2GMap::reverse_update<std::complex<double>>(std::complex<double>*) const;
+// template void spmv::L2GMap::reverse_update<float>(float*) const;
+// template void
+// spmv::L2GMap::reverse_update<std::complex<float>>(std::complex<float>*)
+// const; template void
+// spmv::L2GMap::reverse_update<std::complex<double>>(std::complex<double>*)
+// const;

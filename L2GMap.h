@@ -68,6 +68,9 @@ private:
 
   // Indices, counts and offsets for communication
   std::vector<index_type> _indexbuf;
+#ifdef HAVE_CUDA
+  int *_indexbuf_d;
+#endif
   std::vector<index_type> _send_count;
   std::vector<index_type> _recv_count;
   std::vector<index_type> _send_offset;
