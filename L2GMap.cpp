@@ -157,7 +157,7 @@ void L2GMap::update(T* vec_data) const
 
   // FIXME: How to do on GPU? Another SpMV?
 #ifdef HAVE_CUDA
-  do_shuffle(databuf, vec_data, _indexbuf);
+  do_shuffle(databuf, vec_data, _indexbuf_d, _indexbuf.size());
 #else
   for (std::size_t i = 0; i < _indexbuf.size(); ++i)
     databuf[i] = vec_data[_indexbuf[i]];
