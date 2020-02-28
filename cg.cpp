@@ -79,7 +79,7 @@ std::tuple<Eigen::VectorXd, int> spmv::cg(
     double alpha = rnorm_old / pdoty_sum;
 
     // Update x and r
-    x += alpha * p;
+    x += alpha * psp;
     r -= alpha * y;
 
     // Update rnorm
