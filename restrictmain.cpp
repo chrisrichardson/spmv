@@ -15,6 +15,7 @@
 #include "CreateA.h"
 #include "L2GMap.h"
 #include "read_petsc.h"
+#include "util.h"
 
 //-----------------------------------------------------------------------------
 int main(int argc, char** argv)
@@ -31,16 +32,24 @@ int main(int argc, char** argv)
 
   auto timer_start = std::chrono::system_clock::now();
   // Read in a PETSc binary format matrix
-  auto [R, l2g] = spmv::read_petsc_binary(MPI_COMM_WORLD, "R4.dat");
-  auto [A, l2g_A] = spmv::read_petsc_binary(MPI_COMM_WORLD, "A4.dat");
+  auto [R, l2g] = spmv::read_petsc_binary(MPI_COMM_WORLD, "R3.dat");
+
+  auto [A, l2g_A] = spmv::read_petsc_binary(MPI_COMM_WORLD, "A3.dat");
   std::cout << "A.rows() = " << A.rows() << "\n";
   std::cout << "R.rows() = " << R.rows() << "\n";
   std::cout << "A.cols_local = " << l2g_A->local_size(true) << "\n";
   std::cout << "R.cols_local = " << l2g->local_size(true) << "\n";
 
+  // Try to remap row map to column map...
+  remap_mat(MPI_COMM_WORLD, l2g_A, A, l2g_A);
+
+  auto q = spmv::read_petsc_binary_vector(MPI_COMM_WORLD, "b4.dat");
+
   // Get local and global sizes
   std::int64_t M = R.rows();
   std::int64_t N = l2g->global_size();
+
+  std::cout << "Vector = " << q.size() << " " << M << "\n";
 
 #ifdef EIGEN_USE_MKL_ALL
   sparse_matrix_t R_mkl;
@@ -70,14 +79,6 @@ int main(int argc, char** argv)
   // Vector in "column space" with extra space for ghosts at end
   Eigen::VectorXd psp(l2g->local_size(true));
 
-  // Set up values in local range (column space)
-  int r0 = l2g->global_offset();
-  for (int i = 0; i < l2g->local_size(false); ++i)
-  {
-    double z = (double)(i + r0) / double(N);
-    psp[i] = exp(-10 * pow(5 * (z - 0.5), 2.0));
-  }
-
   timer_end = std::chrono::system_clock::now();
   timings["1.VecCreate"] += (timer_end - timer_start);
 
@@ -88,27 +89,7 @@ int main(int argc, char** argv)
   double pnorm_sum, qnorm_sum;
   for (int i = 0; i < 10; ++i)
   {
-    // Prolongate
-    Eigen::VectorXd q(M);
-    timer_start = std::chrono::system_clock::now();
-    l2g->update(psp.data());
-    timer_end = std::chrono::system_clock::now();
-    timings["2.SparseUpdate"] += (timer_end - timer_start);
-
-    timer_start = std::chrono::system_clock::now();
-#ifdef EIGEN_USE_MKL_ALL
-    mkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, R_mkl, mat_desc,
-                    psp.data(), 0.0, q.data());
-#else
-    q = R * psp;
-#endif
-    timer_end = std::chrono::system_clock::now();
-    timings["3.SpMV"] += (timer_end - timer_start);
-
-    double qnorm = q.squaredNorm();
-    MPI_Allreduce(&qnorm, &qnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-    // Reverse (restrict)
+    // Restrict
     timer_start = std::chrono::system_clock::now();
 #ifdef EIGEN_USE_MKL_ALL
     mkl_sparse_d_mv(SPARSE_OPERATION_TRANSPOSE, 1.0, R_mkl, mat_desc, q.data(),
@@ -127,6 +108,25 @@ int main(int argc, char** argv)
     Eigen::Map<Eigen::VectorXd> p(psp.data(), l2g->local_size(false));
     double pnorm = p.squaredNorm();
     MPI_Allreduce(&pnorm, &pnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+    // Prolongate
+    timer_start = std::chrono::system_clock::now();
+    l2g->update(psp.data());
+    timer_end = std::chrono::system_clock::now();
+    timings["2.SparseUpdate"] += (timer_end - timer_start);
+
+    timer_start = std::chrono::system_clock::now();
+#ifdef EIGEN_USE_MKL_ALL
+    mkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, R_mkl, mat_desc,
+                    psp.data(), 0.0, q.data());
+#else
+    q = R * psp;
+#endif
+    timer_end = std::chrono::system_clock::now();
+    timings["3.SpMV"] += (timer_end - timer_start);
+
+    double qnorm = q.squaredNorm();
+    MPI_Allreduce(&qnorm, &qnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
   }
 
   if (mpi_rank == 0)

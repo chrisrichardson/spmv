@@ -58,6 +58,7 @@ L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
   std::sort(_ghosts.begin(), _ghosts.end());
 
   // Get count on each process and local index
+  std::vector<std::int32_t> send_ghosts(_ghosts.size());
   std::vector<std::int32_t> ghost_count(mpi_size);
   for (std::size_t i = 0; i < _ghosts.size(); ++i)
   {
@@ -70,12 +71,13 @@ L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
     auto it = std::upper_bound(_ranges.begin(), _ranges.end(), idx);
     assert(it != _ranges.end());
     const int p = it - _ranges.begin() - 1;
+    send_ghosts[i] = _ghosts[i] - _ranges[p];
     ++ghost_count[p];
   }
 
   // Find out who is a neighbour (needed for asymmetric graph, since some may
   // only receive but not send back).
-  std::vector<std::int32_t> remote_count(mpi_size);
+  std::vector<std::int32_t> remote_count(mpi_size, 0);
   MPI_Alltoall(ghost_count.data(), 1, MPI_INT, remote_count.data(), 1, MPI_INT,
                comm);
 
@@ -121,18 +123,11 @@ L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
 
   // Send global indices to remote processes that own them
   int err = MPI_Neighbor_alltoallv(
-      _ghosts.data(), _send_count.data(), _send_offset.data(), MPI_INT,
+      send_ghosts.data(), _send_count.data(), _send_offset.data(), MPI_INT,
       _indexbuf.data(), _recv_count.data(), _recv_offset.data(), MPI_INT,
       _neighbour_comm);
   if (err != MPI_SUCCESS)
     throw std::runtime_error("MPI failure");
-
-  // Should be in own range, subtract off _r0
-  for (index_type& i : _indexbuf)
-  {
-    assert(i >= r0 and i < r1);
-    i -= r0;
-  }
 
   // Add local_range onto _send_offset (ghosts will be at end of range)
   for (index_type& s : _send_offset)
@@ -158,6 +153,7 @@ void L2GMap::update(T* vec_data) const
                                    _recv_offset.data(), data_type, vec_data,
                                    _send_count.data(), _send_offset.data(),
                                    data_type, _neighbour_comm);
+
   if (err != MPI_SUCCESS)
     throw std::runtime_error("MPI failure");
 }
@@ -211,10 +207,10 @@ std::int64_t L2GMap::global_offset() const { return _ranges[_mpi_rank]; }
 template void spmv::L2GMap::update<int>(int*) const;
 template void spmv::L2GMap::update<double>(double*) const;
 template void spmv::L2GMap::update<float>(float*) const;
-template void
-spmv::L2GMap::update<std::complex<float>>(std::complex<float>*) const;
-template void
-spmv::L2GMap::update<std::complex<double>>(std::complex<double>*) const;
+// template void
+// spmv::L2GMap::update<std::complex<float>>(std::complex<float>*) const;
+// template void
+// spmv::L2GMap::update<std::complex<double>>(std::complex<double>*) const;
 template void spmv::L2GMap::reverse_update<int>(int*) const;
 template void spmv::L2GMap::reverse_update<double>(double*) const;
 template void spmv::L2GMap::reverse_update<float>(float*) const;

@@ -57,8 +57,11 @@ std::tuple<Eigen::VectorXd, int> spmv::cg(
   // Iterations of CG
 
   double rnorm_old = rnorm0;
-  for (int k = 0; k < kmax; ++k)
+  int k = 0;
+  while (k < kmax)
   {
+    ++k;
+
     // y = A.p
     l2g->update(psp.data());
 
@@ -76,7 +79,7 @@ std::tuple<Eigen::VectorXd, int> spmv::cg(
     double alpha = rnorm_old / pdoty_sum;
 
     // Update x and r
-    x += alpha * p;
+    x.head(M) += alpha * p;
     r -= alpha * y;
 
     // Update rnorm
@@ -90,7 +93,12 @@ std::tuple<Eigen::VectorXd, int> spmv::cg(
     p = p * beta + r;
 
     if (rnorm_new / rnorm0 < rtol)
-      return {x, k};
+      break;
   }
-  return {x, kmax};
+
+#ifdef EIGEN_USE_MKL_ALL
+  mkl_sparse_destroy(A_mkl);
+#endif
+
+  return {x, k};
 }

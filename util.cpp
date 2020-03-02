@@ -3,6 +3,7 @@
 
 #include "util.h"
 #include "L2GMap.h"
+#include <iostream>
 #include <numeric>
 #include <set>
 #include <vector>
@@ -53,9 +54,9 @@ diagonal_block_nnz(const Eigen::SparseMatrix<double, Eigen::RowMajor>& mat)
 //-----------------------------------------------------------------------------
 std::tuple<Eigen::SparseMatrix<double, Eigen::RowMajor>,
            std::shared_ptr<spmv::L2GMap>>
-remap_mat(MPI_Comm comm, std::shared_ptr<spmv::L2GMap> row_map,
-          Eigen::Ref<Eigen::SparseMatrix<double, Eigen::RowMajor>> A,
-          std::shared_ptr<spmv::L2GMap> col_map)
+spmv::remap_mat(MPI_Comm comm, std::shared_ptr<spmv::L2GMap> row_map,
+                Eigen::Ref<Eigen::SparseMatrix<double, Eigen::RowMajor>> A,
+                std::shared_ptr<spmv::L2GMap> col_map)
 {
   // Takes a SparseMatrix A, and fetches the ghost rows in row_map and
   // appends them to A, creating a new SparseMatrix B
@@ -67,22 +68,38 @@ remap_mat(MPI_Comm comm, std::shared_ptr<spmv::L2GMap> row_map,
         "(unghosted) of the row map.");
 
   // First fetch the nnz on each new row
-  std::vector<int> nnz(row_map->local_size(true));
+  std::vector<int> nnz(row_map->local_size(true), -1);
+  const int* Aouter = A.outerIndexPtr();
   const int* Ainner = A.innerIndexPtr();
 
   if (A.isCompressed())
   {
     for (int i = 0; i < A.rows(); ++i)
-      nnz[i] = Ainner[i + 1] - Ainner[i];
+      nnz[i] = Aouter[i + 1] - Aouter[i];
   }
   else
   {
+    throw std::runtime_error("Must be compressed");
     const int* innernnz = A.innerNonZeroPtr();
     std::copy(innernnz, innernnz + A.rows(), nnz.begin());
   }
 
+  int rank;
+  MPI_Comm_rank(comm, &rank);
+
   // Send/receive nnz for ghost rows in row_map
   row_map->update(nnz.data());
+
+  exit(0);
+
+  std::stringstream s;
+  s << rank << "] (" << row_map->ghosts().size() << ")\n";
+
+  s << "Got nnz data for ghosts: [";
+  for (int i = row_map->local_size(false); i < row_map->local_size(true); ++i)
+    s << nnz[i] << " ";
+  s << "]\n";
+  std::cout << s.str();
 
   // Fetch ghost row column indices (global)
   std::vector<std::int64_t> global_index_send;
