@@ -90,8 +90,6 @@ spmv::remap_mat(MPI_Comm comm, std::shared_ptr<spmv::L2GMap> row_map,
   // Send/receive nnz for ghost rows in row_map
   row_map->update(nnz.data());
 
-  exit(0);
-
   std::stringstream s;
   s << rank << "] (" << row_map->ghosts().size() << ")\n";
 
@@ -99,7 +97,6 @@ spmv::remap_mat(MPI_Comm comm, std::shared_ptr<spmv::L2GMap> row_map,
   for (int i = row_map->local_size(false); i < row_map->local_size(true); ++i)
     s << nnz[i] << " ";
   s << "]\n";
-  std::cout << s.str();
 
   // Fetch ghost row column indices (global)
   std::vector<std::int64_t> global_index_send;
@@ -120,7 +117,7 @@ spmv::remap_mat(MPI_Comm comm, std::shared_ptr<spmv::L2GMap> row_map,
     for (int j = 0; j < owned_count[i]; ++j)
     {
       count += nnz[indexbuf[j]];
-      for (int k = indexbuf[j]; k < indexbuf[j + 1]; ++k)
+      for (int k = Aouter[indexbuf[j]]; k < Aouter[indexbuf[j] + 1]; ++k)
       {
         std::int64_t global_index;
         if (Ainner[k] < col_local_size)
@@ -129,11 +126,11 @@ spmv::remap_mat(MPI_Comm comm, std::shared_ptr<spmv::L2GMap> row_map,
           global_index = col_ghosts[Ainner[k] - col_local_size];
         global_index_send.push_back(global_index);
       }
-
-      send_count.push_back(count);
-      send_offset.push_back(send_offset.back() + count);
     }
+    send_count.push_back(count);
+    send_offset.push_back(send_offset.back() + count);
   }
+  assert((int)global_index_send.size() == send_offset.back());
 
   std::vector<int> recv_count;
   std::vector<int> recv_offset = {0};
@@ -150,8 +147,8 @@ spmv::remap_mat(MPI_Comm comm, std::shared_ptr<spmv::L2GMap> row_map,
 
   MPI_Neighbor_alltoallv(
       global_index_send.data(), send_count.data(), send_offset.data(),
-      MPI_LONG_INT, global_index_recv.data(), recv_count.data(),
-      recv_offset.data(), MPI_LONG_INT, row_map->neighbour_comm());
+      MPI_INT64_T, global_index_recv.data(), recv_count.data(),
+      recv_offset.data(), MPI_INT64_T, row_map->neighbour_comm());
 
   // Get a list of all ghost indices in column space, including new ones.
   std::set<std::int64_t> column_ghost_set(col_ghosts.begin(), col_ghosts.end());
@@ -162,12 +159,18 @@ spmv::remap_mat(MPI_Comm comm, std::shared_ptr<spmv::L2GMap> row_map,
   }
   std::vector<std::int64_t> new_col_ghosts(column_ghost_set.begin(),
                                            column_ghost_set.end());
+
   auto new_col_map
       = std::make_shared<spmv::L2GMap>(comm, col_map->ranges(), new_col_ghosts);
 
   // Prepare new data for B
   Eigen::SparseMatrix<double, Eigen::RowMajor> B(row_map->local_size(true),
                                                  new_col_map->local_size(true));
+
+  s << "B.rows() = " << B.rows() << " \n";
+  s << "B.cols() = " << B.cols() << " \n";
+
+  std::cout << s.str();
 
   return {B, new_col_map};
 }

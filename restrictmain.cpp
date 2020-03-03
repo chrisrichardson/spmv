@@ -34,14 +34,14 @@ int main(int argc, char** argv)
   // Read in a PETSc binary format matrix
   auto [R, l2g] = spmv::read_petsc_binary(MPI_COMM_WORLD, "R3.dat");
 
-  auto [A, l2g_A] = spmv::read_petsc_binary(MPI_COMM_WORLD, "A3.dat");
+  auto [A, l2g_A] = spmv::read_petsc_binary(MPI_COMM_WORLD, "A0.dat");
   std::cout << "A.rows() = " << A.rows() << "\n";
-  std::cout << "R.rows() = " << R.rows() << "\n";
   std::cout << "A.cols_local = " << l2g_A->local_size(true) << "\n";
-  std::cout << "R.cols_local = " << l2g->local_size(true) << "\n";
 
   // Try to remap row map to column map...
   remap_mat(MPI_COMM_WORLD, l2g_A, A, l2g_A);
+
+  exit(0);
 
   auto q = spmv::read_petsc_binary_vector(MPI_COMM_WORLD, "b4.dat");
 
