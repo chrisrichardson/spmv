@@ -14,6 +14,7 @@
 
 #include "CreateA.h"
 #include "L2GMap.h"
+#include "Matrix.h"
 #include "cg.h"
 #include "read_petsc.h"
 
@@ -42,6 +43,8 @@ int main(int argc, char** argv)
 
   auto [A, l2g]
       = spmv::read_petsc_binary(MPI_COMM_WORLD, "petsc_mat" + argv1 + ".dat");
+  spmv::Matrix AA(A, l2g);
+
   auto b = spmv::read_petsc_binary_vector(MPI_COMM_WORLD,
                                           "petsc_vec" + argv1 + ".dat");
   // Get local and global sizes
@@ -59,7 +62,7 @@ int main(int argc, char** argv)
   // Turn on profiling for solver only
   MPI_Pcontrol(1);
   timer_start = std::chrono::system_clock::now();
-  auto [x, num_its] = spmv::cg(MPI_COMM_WORLD, A, l2g, b, max_its, rtol);
+  auto [x, num_its] = spmv::cg(MPI_COMM_WORLD, AA, b, max_its, rtol);
   timer_end = std::chrono::system_clock::now();
   timings["1.Solve"] += (timer_end - timer_start);
   MPI_Pcontrol(0);
