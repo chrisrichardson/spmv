@@ -17,11 +17,8 @@
 #include "Matrix.h"
 #include "read_petsc.h"
 
-//-----------------------------------------------------------------------------
-int main(int argc, char** argv)
+void matvec_main()
 {
-  MPI_Init(&argc, &argv);
-
   int mpi_rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
   int mpi_size;
@@ -33,14 +30,13 @@ int main(int argc, char** argv)
   auto timer_start = std::chrono::system_clock::now();
 
   // Either create a simple 1D stencil
-  auto [A, l2g] = create_A(MPI_COMM_WORLD, 50000 * mpi_size);
+  //  spmv::Matrix A = create_A(MPI_COMM_WORLD, 500000);
 
   // Or read file created with "-ksp_view_mat binary" option
-  //  auto [A, l2g] = read_petsc_binary(MPI_COMM_WORLD, "binaryoutput");
+  spmv::Matrix A = spmv::read_petsc_binary(MPI_COMM_WORLD, "A4.dat");
 
-  spmv::Matrix AA(A, l2g);
-
-  Eigen::VectorXd b(50000);
+  std::shared_ptr<const spmv::L2GMap> l2g = A.col_map();
+  Eigen::VectorXd b(A.rows());
 
   // Get local and global sizes
   std::int64_t M = A.rows();
@@ -69,7 +65,7 @@ int main(int argc, char** argv)
   timings["1.VecCreate"] += (timer_end - timer_start);
 
   // Apply matrix a few times
-  int n_apply = 1;
+  int n_apply = 1000;
   if (mpi_rank == 0)
     std::cout << "Applying matrix " << n_apply << " times\n";
 
@@ -83,7 +79,7 @@ int main(int argc, char** argv)
     timings["2.SparseUpdate"] += (timer_end - timer_start);
 
     timer_start = std::chrono::system_clock::now();
-    q = AA * psp;
+    q = A * psp;
     timer_end = std::chrono::system_clock::now();
     timings["3.SpMV"] += (timer_end - timer_start);
 
@@ -126,9 +122,14 @@ int main(int argc, char** argv)
     std::cout << "----------------------------\n";
     std::cout << "norm = " << pnorm_sum << "\n";
   }
+}
 
-  // Need to destroy L2G here before MPI_Finalize, because it holds a comm
-  l2g.reset();
+//-----------------------------------------------------------------------------
+int main(int argc, char** argv)
+{
+  MPI_Init(&argc, &argv);
+
+  matvec_main();
 
   MPI_Finalize();
   return 0;
