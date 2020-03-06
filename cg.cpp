@@ -105,24 +105,6 @@ spmv::cg_cuda(MPI_Comm comm,
               const std::shared_ptr<const spmv::L2GMap> l2g,
               const Eigen::Ref<const Eigen::VectorXd>& b, int kmax, double rtol)
 {
-  int mpi_rank;
-  MPI_Comm_rank(comm, &mpi_rank);
-
-  // Get number of local gpus
-  int ngpus;
-  cuda_CHECK(cudaGetDeviceCount(&ngpus));
-
-  MPI_Comm split_comm;
-  MPI_Comm_split_type(comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
-                      &split_comm);
-  int ncores;
-  MPI_Comm_size(split_comm, &ncores);
-  std::cout << "ncores = " << ncores << "\n";
-  std::cout << "ngpus = " << ngpus << "\n";
-
-  // Hack
-  cuda_CHECK(cudaSetDevice(mpi_rank));
-
   // Initialise cuBLAS
   cublasHandle_t blas_handle;
   cublas_CHECK(cublasCreate(&blas_handle));

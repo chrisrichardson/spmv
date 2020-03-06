@@ -17,6 +17,8 @@
 #include "cg.h"
 #include "read_petsc.h"
 
+#include "cuda_check.h"
+
 //-----------------------------------------------------------------------------
 int main(int argc, char** argv)
 {
@@ -28,6 +30,26 @@ int main(int argc, char** argv)
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
   int mpi_size;
   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+
+/* CUDA STUFF */
+  // Get number of local gpus
+  int ngpus;
+  cuda_CHECK(cudaGetDeviceCount(&ngpus));
+
+  MPI_Comm split_comm;
+  MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
+                      &split_comm);
+  int nlocal;
+  MPI_Comm_size(split_comm, &nlocal);
+  std::cout << "nlocal = " << nlocal << "\n";
+  std::cout << "ngpus = " << ngpus << "\n";
+
+  int local_rank;
+  MPI_Comm_rank(split_comm, &local_rank);
+
+  // Hack
+  cuda_CHECK(cudaSetDevice(local_rank));
+/* END CUDA STUFF */
 
   // Keep list of timings
   std::map<std::string, std::chrono::duration<double>> timings;
