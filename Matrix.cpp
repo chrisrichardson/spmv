@@ -42,3 +42,16 @@ Eigen::VectorXd Matrix::operator*(const Eigen::VectorXd& b) const
 #endif
 }
 //-----------------------------------------------------------------------------
+Eigen::VectorXd Matrix::transpmult(const Eigen::VectorXd& b) const
+{
+#ifdef EIGEN_USE_MKL_ALL
+  Eigen::VectorXd y(_matA.cols());
+  mkl_sparse_d_mv(SPARSE_OPERATION_TRANSPOSE, 1.0, A_mkl, mat_desc, b.data(),
+                  0.0, y.data());
+
+  return y;
+#else
+  return _matA.transpose() * b;
+#endif
+}
+//-----------------------------------------------------------------------------

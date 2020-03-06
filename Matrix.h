@@ -25,6 +25,9 @@ public:
   // operator
   Eigen::VectorXd operator*(const Eigen::VectorXd& b) const;
 
+  Eigen::VectorXd transpmult(const Eigen::VectorXd& b) const;
+
+
   std::shared_ptr<const L2GMap> row_map() const
   {
     return _row_map;

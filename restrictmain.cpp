@@ -16,11 +16,8 @@
 #include "L2GMap.h"
 #include "read_petsc.h"
 
-//-----------------------------------------------------------------------------
-int main(int argc, char** argv)
+void restrict_main()
 {
-  MPI_Init(&argc, &argv);
-
   int mpi_rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
   int mpi_size;
@@ -31,32 +28,16 @@ int main(int argc, char** argv)
 
   auto timer_start = std::chrono::system_clock::now();
   // Read in a PETSc binary format matrix
-  auto [R, l2g] = spmv::read_petsc_binary(MPI_COMM_WORLD, "R4.dat");
+  auto R = spmv::read_petsc_binary(MPI_COMM_WORLD, "R4.dat");
   auto q = spmv::read_petsc_binary_vector(MPI_COMM_WORLD, "b4.dat");
 
   // Get local and global sizes
   std::int64_t M = R.rows();
+  auto l2g = R.col_map();
   std::int64_t N = l2g->global_size();
 
   std::cout << "Vector = " << q.size() << " " << M << "\n";
 
-#ifdef EIGEN_USE_MKL_ALL
-  sparse_matrix_t R_mkl;
-  sparse_status_t status = mkl_sparse_d_create_csr(
-      &R_mkl, SPARSE_INDEX_BASE_ZERO, R.rows(), R.cols(), R.outerIndexPtr(),
-      R.outerIndexPtr() + 1, R.innerIndexPtr(), R.valuePtr());
-  assert(status == SPARSE_STATUS_SUCCESS);
-
-  status = mkl_sparse_optimize(R_mkl);
-  assert(status == SPARSE_STATUS_SUCCESS);
-
-  if (status != SPARSE_STATUS_SUCCESS)
-    throw std::runtime_error("Could not create MKL matrix");
-
-  struct matrix_descr mat_desc;
-  mat_desc.type = SPARSE_MATRIX_TYPE_GENERAL;
-  mat_desc.diag = SPARSE_DIAG_NON_UNIT;
-#endif
   auto timer_end = std::chrono::system_clock::now();
   timings["0.PetscRead"] += (timer_end - timer_start);
 
@@ -80,12 +61,8 @@ int main(int argc, char** argv)
   {
     // Restrict
     timer_start = std::chrono::system_clock::now();
-#ifdef EIGEN_USE_MKL_ALL
-    mkl_sparse_d_mv(SPARSE_OPERATION_TRANSPOSE, 1.0, R_mkl, mat_desc, q.data(),
-                    0.0, psp.data());
-#else
-    psp = R.transpose() * q;
-#endif
+    psp = R.transpmult(q);
+
     timer_end = std::chrono::system_clock::now();
     timings["3.SpMV"] += (timer_end - timer_start);
 
@@ -105,12 +82,8 @@ int main(int argc, char** argv)
     timings["2.SparseUpdate"] += (timer_end - timer_start);
 
     timer_start = std::chrono::system_clock::now();
-#ifdef EIGEN_USE_MKL_ALL
-    mkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, R_mkl, mat_desc,
-                    psp.data(), 0.0, q.data());
-#else
     q = R * psp;
-#endif
+
     timer_end = std::chrono::system_clock::now();
     timings["3.SpMV"] += (timer_end - timer_start);
 
@@ -148,9 +121,13 @@ int main(int argc, char** argv)
     std::cout << "norm q = " << qnorm_sum << "\n";
     std::cout << "norm p = " << pnorm_sum << "\n";
   }
+}
+//-----------------------------------------------------------------------------
+int main(int argc, char** argv)
+{
+  MPI_Init(&argc, &argv);
 
-  // Need to destroy L2G here before MPI_Finalize, because it holds a comm
-  l2g.reset();
+  restrict_main();
 
   MPI_Finalize();
   return 0;

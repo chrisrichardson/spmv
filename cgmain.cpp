@@ -41,9 +41,9 @@ int main(int argc, char** argv)
   else
     throw std::runtime_error("Use with filename");
 
-  auto [A, l2g]
+  auto AA
       = spmv::read_petsc_binary(MPI_COMM_WORLD, "petsc_mat" + argv1 + ".dat");
-  spmv::Matrix AA(A, l2g);
+  auto l2g = AA.col_map();
 
   auto b = spmv::read_petsc_binary_vector(MPI_COMM_WORLD,
                                           "petsc_vec" + argv1 + ".dat");
@@ -74,8 +74,7 @@ int main(int argc, char** argv)
 
   // Test result
   l2g->update(x.data());
-
-  Eigen::VectorXd r = A * x - b;
+  Eigen::VectorXd r = AA * x - b;
   double rnorm = r.squaredNorm();
   double rnorm_sum;
   MPI_Allreduce(&rnorm, &rnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
