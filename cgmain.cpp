@@ -14,13 +14,12 @@
 
 #include "CreateA.h"
 #include "L2GMap.h"
+#include "Matrix.h"
 #include "cg.h"
 #include "read_petsc.h"
 
-//-----------------------------------------------------------------------------
-int main(int argc, char** argv)
+int cg_main(int argc, char** argv)
 {
-  MPI_Init(&argc, &argv);
   // Turn off profiling
   MPI_Pcontrol(0);
 
@@ -40,8 +39,10 @@ int main(int argc, char** argv)
   else
     throw std::runtime_error("Use with filename");
 
-  auto [A, l2g]
+  auto A
       = spmv::read_petsc_binary(MPI_COMM_WORLD, "petsc_mat" + argv1 + ".dat");
+  std::shared_ptr<const spmv::L2GMap> l2g = A.col_map();
+
   auto b = spmv::read_petsc_binary_vector(MPI_COMM_WORLD,
                                           "petsc_vec" + argv1 + ".dat");
   // Get local and global sizes
@@ -59,7 +60,7 @@ int main(int argc, char** argv)
   // Turn on profiling for solver only
   MPI_Pcontrol(1);
   timer_start = std::chrono::system_clock::now();
-  auto [x, num_its] = spmv::cg(MPI_COMM_WORLD, A, l2g, b, max_its, rtol);
+  auto [x, num_its] = spmv::cg(MPI_COMM_WORLD, A, b, max_its, rtol);
   timer_end = std::chrono::system_clock::now();
   timings["1.Solve"] += (timer_end - timer_start);
   MPI_Pcontrol(0);
@@ -71,7 +72,6 @@ int main(int argc, char** argv)
 
   // Test result
   l2g->update(x.data());
-
   Eigen::VectorXd r = A * x - b;
   double rnorm = r.squaredNorm();
   double rnorm_sum;
@@ -109,8 +109,15 @@ int main(int argc, char** argv)
   if (mpi_rank == 0)
     std::cout << "----------------------------\n";
 
-  // Need to destroy L2G here before MPI_Finalize, because it holds a comm
-  l2g.reset();
+  return 0;
+}
+//-----------------------------------------------------------------------------
+int main(int argc, char** argv)
+{
+  MPI_Init(&argc, &argv);
+
+  cg_main(argc, argv);
+
   MPI_Finalize();
   return 0;
 }

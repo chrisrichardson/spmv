@@ -18,13 +18,8 @@
 #include "read_petsc.h"
 #include "util.h"
 
-//-----------------------------------------------------------------------------
-int main(int argc, char** argv)
+void jacobi_main(int argc, char** argv)
 {
-  MPI_Init(&argc, &argv);
-  // Turn off profiling
-  MPI_Pcontrol(0);
-
   int mpi_rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
   int mpi_size;
@@ -41,11 +36,12 @@ int main(int argc, char** argv)
   else
     throw std::runtime_error("Use with filename");
 
-  auto [A, l2g]
+  auto A
       = spmv::read_petsc_binary(MPI_COMM_WORLD, "petsc_mat" + argv1 + ".dat");
   auto b = spmv::read_petsc_binary_vector(MPI_COMM_WORLD,
                                           "petsc_vec" + argv1 + ".dat");
   // Get local and global sizes
+  auto l2g = A.col_map();
   std::int64_t N = l2g->global_size();
 
   if (mpi_rank == 0)
@@ -57,12 +53,12 @@ int main(int argc, char** argv)
   int num_its = 10000;
   //  double rtol = 1e-10;
 
-  Eigen::VectorXd D = spmv::extract_diagonal(A).cwiseInverse();
+  Eigen::VectorXd D = spmv::extract_diagonal(A.mat()).cwiseInverse();
   Eigen::VectorXd x(l2g->local_size(true));
 
   timer_start = std::chrono::system_clock::now();
   for (int i = 0; i < num_its; ++i)
-    spmv::jacobi(A, l2g, x, b, D);
+    spmv::jacobi(A, x, b, D);
   timer_end = std::chrono::system_clock::now();
   timings["1.Solve"] += (timer_end - timer_start);
 
@@ -110,9 +106,14 @@ int main(int argc, char** argv)
 
   if (mpi_rank == 0)
     std::cout << "----------------------------\n";
+}
+//-----------------------------------------------------------------------------
+int main(int argc, char** argv)
+{
+  MPI_Init(&argc, &argv);
 
-  // Need to destroy L2G here before MPI_Finalize, because it holds a comm
-  l2g.reset();
+  jacobi_main(argc, argv);
+
   MPI_Finalize();
   return 0;
 }

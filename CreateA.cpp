@@ -28,9 +28,7 @@ std::vector<index_type> owner_ranges(std::int64_t size, index_type N)
   return ranges;
 }
 //-----------------------------------------------------------------------------
-std::tuple<Eigen::SparseMatrix<double, Eigen::RowMajor>,
-           std::shared_ptr<spmv::L2GMap>>
-create_A(MPI_Comm comm, int N)
+spmv::Matrix create_A(MPI_Comm comm, int N)
 {
   int mpi_rank;
   MPI_Comm_rank(comm, &mpi_rank);
@@ -107,6 +105,6 @@ create_A(MPI_Comm comm, int N)
   }
   Alocal.setFromTriplets(vals.begin(), vals.end());
 
-  return {Alocal, l2g};
+  return spmv::Matrix(Alocal, l2g);
 }
 //-----------------------------------------------------------------------------

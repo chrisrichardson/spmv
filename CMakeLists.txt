@@ -37,7 +37,7 @@ target_link_libraries(restrictmain ${PROJECT_NAME})
 add_executable(jacobimain jacobimain.cpp)
 target_link_libraries(jacobimain ${PROJECT_NAME})
 
-add_library(${PROJECT_NAME} SHARED read_petsc.cpp L2GMap.cpp cg.cpp util.cpp jacobi.cpp)
+add_library(${PROJECT_NAME} SHARED read_petsc.cpp L2GMap.cpp cg.cpp Matrix.cpp util.cpp jacobi.cpp)
 
 if(BLAS_FOUND)
     target_compile_definitions(${PROJECT_NAME} PUBLIC EIGEN_USE_MKL_ALL)

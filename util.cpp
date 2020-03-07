@@ -52,16 +52,17 @@ diagonal_block_nnz(const Eigen::SparseMatrix<double, Eigen::RowMajor>& mat)
   return innernnz;
 }
 //-----------------------------------------------------------------------------
-std::tuple<Eigen::SparseMatrix<double, Eigen::RowMajor>,
-           std::shared_ptr<spmv::L2GMap>>
-spmv::remap_mat(MPI_Comm comm, std::shared_ptr<spmv::L2GMap> row_map,
-                Eigen::Ref<Eigen::SparseMatrix<double, Eigen::RowMajor>> A,
-                std::shared_ptr<spmv::L2GMap> col_map)
+spmv::Matrix spmv::remap_mat(MPI_Comm comm,
+                             std::shared_ptr<const spmv::L2GMap> row_map,
+                             const spmv::Matrix& A)
 {
   // Takes a SparseMatrix A, and fetches the ghost rows in row_map and
   // appends them to A, creating a new SparseMatrix B
 
-  if (A.rows() != row_map->local_size(false))
+  Eigen::Ref<const Eigen::SparseMatrix<double, Eigen::RowMajor>> B = A.mat();
+  std::shared_ptr<const spmv::L2GMap> col_map = A.col_map();
+
+  if (B.rows() != row_map->local_size(false))
     throw std::runtime_error(
         "Cannot use L2G row map which is not compliant with matrix.\n"
         "The matrix must have the same number of rows as the local size "
@@ -69,19 +70,19 @@ spmv::remap_mat(MPI_Comm comm, std::shared_ptr<spmv::L2GMap> row_map,
 
   // First fetch the nnz on each new row
   std::vector<int> nnz(row_map->local_size(true), -1);
-  const int* Aouter = A.outerIndexPtr();
-  const int* Ainner = A.innerIndexPtr();
+  const int* Bouter = B.outerIndexPtr();
+  const int* Binner = B.innerIndexPtr();
 
-  if (A.isCompressed())
+  if (B.isCompressed())
   {
-    for (int i = 0; i < A.rows(); ++i)
-      nnz[i] = Aouter[i + 1] - Aouter[i];
+    for (int i = 0; i < B.rows(); ++i)
+      nnz[i] = Bouter[i + 1] - Bouter[i];
   }
   else
   {
     throw std::runtime_error("Must be compressed");
-    const int* innernnz = A.innerNonZeroPtr();
-    std::copy(innernnz, innernnz + A.rows(), nnz.begin());
+    const int* innernnz = B.innerNonZeroPtr();
+    std::copy(innernnz, innernnz + B.rows(), nnz.begin());
   }
 
   int rank;
@@ -117,13 +118,13 @@ spmv::remap_mat(MPI_Comm comm, std::shared_ptr<spmv::L2GMap> row_map,
     for (int j = 0; j < owned_count[i]; ++j)
     {
       count += nnz[indexbuf[j]];
-      for (int k = Aouter[indexbuf[j]]; k < Aouter[indexbuf[j] + 1]; ++k)
+      for (int k = Bouter[indexbuf[j]]; k < Bouter[indexbuf[j] + 1]; ++k)
       {
         std::int64_t global_index;
-        if (Ainner[k] < col_local_size)
-          global_index = Ainner[k] + col_global_offset;
+        if (Binner[k] < col_local_size)
+          global_index = Binner[k] + col_global_offset;
         else
-          global_index = col_ghosts[Ainner[k] - col_local_size];
+          global_index = col_ghosts[Binner[k] - col_local_size];
         global_index_send.push_back(global_index);
       }
     }
@@ -163,14 +164,14 @@ spmv::remap_mat(MPI_Comm comm, std::shared_ptr<spmv::L2GMap> row_map,
   auto new_col_map
       = std::make_shared<spmv::L2GMap>(comm, col_map->ranges(), new_col_ghosts);
 
-  // Prepare new data for B
-  Eigen::SparseMatrix<double, Eigen::RowMajor> B(row_map->local_size(true),
+  // Prepare new data for W
+  Eigen::SparseMatrix<double, Eigen::RowMajor> W(row_map->local_size(true),
                                                  new_col_map->local_size(true));
 
-  s << "B.rows() = " << B.rows() << " \n";
-  s << "B.cols() = " << B.cols() << " \n";
+  s << "W.rows() = " << W.rows() << " \n";
+  s << "W.cols() = " << W.cols() << " \n";
 
   std::cout << s.str();
 
-  return {B, new_col_map};
+  return spmv::Matrix(W, new_col_map);
 }

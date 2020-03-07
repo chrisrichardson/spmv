@@ -4,10 +4,11 @@
 
 namespace spmv
 {
-class L2GMap;
+class Matrix;
 
-void jacobi(const Eigen::SparseMatrix<double, Eigen::RowMajor>& A,
-            std::shared_ptr<const L2GMap> l2g, Eigen::Ref<Eigen::VectorXd> x,
-            const Eigen::Ref<const Eigen::VectorXd>& b,
-            const Eigen::Ref<const Eigen::VectorXd>& D);
+
+ void jacobi(const spmv::Matrix& A,
+             Eigen::Ref<Eigen::VectorXd> x,
+             const Eigen::Ref<const Eigen::VectorXd>& b,
+             const Eigen::Ref<const Eigen::VectorXd>& D);
 } // namespace spmv

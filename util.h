@@ -4,6 +4,7 @@
 #include <memory>
 #include <mpi.h>
 #include <vector>
+#include "Matrix.h"
 
 namespace spmv
 {
@@ -15,10 +16,9 @@ extract_diagonal(const Eigen::SparseMatrix<double, Eigen::RowMajor>& mat);
 std::vector<int>
 diagonal_block_nnz(const Eigen::SparseMatrix<double, Eigen::RowMajor>& mat);
 
-std::tuple<Eigen::SparseMatrix<double, Eigen::RowMajor>,
-           std::shared_ptr<spmv::L2GMap>>
-remap_mat(MPI_Comm comm, std::shared_ptr<spmv::L2GMap> row_map,
-          Eigen::Ref<Eigen::SparseMatrix<double, Eigen::RowMajor>> A,
-          std::shared_ptr<spmv::L2GMap> col_map);
+spmv::Matrix
+remap_mat(MPI_Comm comm, std::shared_ptr<const spmv::L2GMap> row_map,
+          const spmv::Matrix& A);
+
 
 } // namespace spmv

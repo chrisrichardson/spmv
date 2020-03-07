@@ -10,7 +10,7 @@
 namespace spmv
 {
 
-class L2GMap;
+class Matrix;
 
 // Solve A.x=b iteratively with Conjugate Gradient
 //
@@ -24,10 +24,8 @@ class L2GMap;
 //
 // @return tuple of result and number of iterations
 //
-std::tuple<Eigen::VectorXd, int>
-cg(MPI_Comm comm,
-   const Eigen::Ref<const Eigen::SparseMatrix<double, Eigen::RowMajor>>& A, 
-   const std::shared_ptr<const L2GMap> l2g,
-   const Eigen::Ref<const Eigen::VectorXd>& b, int max_its, double rtol);
+std::tuple<Eigen::VectorXd, int> cg(MPI_Comm comm, const Matrix& A,
+                                    const Eigen::Ref<const Eigen::VectorXd>& b,
+                                    int max_its, double rtol);
 
 } // namespace spmv
