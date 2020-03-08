@@ -15,7 +15,6 @@
 #include "CreateA.h"
 #include "L2GMap.h"
 #include "read_petsc.h"
-#include "util.h"
 
 void restrict_main()
 {
@@ -29,19 +28,7 @@ void restrict_main()
 
   auto timer_start = std::chrono::system_clock::now();
   // Read in a PETSc binary format matrix
-
-  auto R = spmv::read_petsc_binary(MPI_COMM_WORLD, "R3.dat");
-
-  auto A = spmv::read_petsc_binary(MPI_COMM_WORLD, "A0.dat");
-  auto l2g_A = A.col_map();
-  std::cout << "A.rows() = " << A.rows() << "\n";
-  std::cout << "A.cols_local = " << l2g_A->local_size(true) << "\n";
-
-  // Try to remap row map to column map...
-  remap_mat(MPI_COMM_WORLD, l2g_A, A);
-
-  exit(0);
-
+  auto R = spmv::read_petsc_binary(MPI_COMM_WORLD, "R4.dat");
   auto q = spmv::read_petsc_binary_vector(MPI_COMM_WORLD, "b4.dat");
 
   // Get local and global sizes

@@ -1,15 +1,16 @@
 
 
 #include "Matrix.h"
+#include "L2GMap.h"
 #include <iostream>
 
 using namespace spmv;
 
 Matrix::Matrix(Eigen::SparseMatrix<double, Eigen::RowMajor> A,
-               std::shared_ptr<spmv::L2GMap> col_map)
+               std::shared_ptr<const spmv::L2GMap> col_map)
     : _matA(A), _col_map(col_map)
 {
-  // _row_map = std::make_shared<L2GMap>(comm, _matA.rows(), {});
+  assert(_matA.cols() == _col_map->local_size(true));
 
 #ifdef EIGEN_USE_MKL_ALL
   sparse_status_t status = mkl_sparse_d_create_csr(

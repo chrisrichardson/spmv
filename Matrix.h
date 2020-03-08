@@ -12,7 +12,7 @@ class Matrix
 {
 public:
   Matrix(Eigen::SparseMatrix<double, Eigen::RowMajor> A,
-         std::shared_ptr<spmv::L2GMap> col_map);
+         std::shared_ptr<const spmv::L2GMap> col_map);
 
   ~Matrix()
   {
@@ -21,33 +21,29 @@ public:
 #endif
   }
 
-
-  // operator
+  // Multiply operator
   Eigen::VectorXd operator*(const Eigen::VectorXd& b) const;
 
+  // Transpose multiply
   Eigen::VectorXd transpmult(const Eigen::VectorXd& b) const;
 
-
-  std::shared_ptr<const L2GMap> row_map() const
-  {
-    return _row_map;
-  }
-
-    std::shared_ptr<const L2GMap> col_map() const
+  // Column Local-to-Global map
+  std::shared_ptr<const L2GMap> col_map() const
   {
     return _col_map;
   }
 
+  // Number of local rows
   int rows() const
   {
     return _matA.rows();
   }
 
+  // Underlying matrix
   Eigen::Ref<const Eigen::SparseMatrix<double, Eigen::RowMajor>> mat() const
   {
     return _matA;
   }
-
 
 private:
 
@@ -58,7 +54,6 @@ private:
 
   Eigen::SparseMatrix<double, Eigen::RowMajor> _matA;
 
-  std::shared_ptr<spmv::L2GMap> _row_map;
-  std::shared_ptr<spmv::L2GMap> _col_map;
+  std::shared_ptr<const spmv::L2GMap> _col_map;
 };
 } // namespace spmv
