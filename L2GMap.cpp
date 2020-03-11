@@ -47,7 +47,7 @@ L2GMap::L2GMap(MPI_Comm comm, const std::vector<std::int64_t>& ranges,
 
   const std::int64_t r0 = _ranges[_mpi_rank];
   const std::int64_t r1 = _ranges[_mpi_rank + 1];
-  const std::int64_t local_size = r1 - r0;
+  const std::int32_t local_size = r1 - r0;
 
   // Make sure ghosts are in order
   if (!std::is_sorted(_ghosts.begin(), _ghosts.end()))
@@ -55,6 +55,7 @@ L2GMap::L2GMap(MPI_Comm comm, const std::vector<std::int64_t>& ranges,
 
   // Get count on each process and local index
   std::vector<std::int32_t> ghost_count(mpi_size);
+  std::vector<std::int32_t> ghost_local;
   for (std::size_t i = 0; i < _ghosts.size(); ++i)
   {
     const std::int64_t idx = _ghosts[i];
@@ -67,7 +68,10 @@ L2GMap::L2GMap(MPI_Comm comm, const std::vector<std::int64_t>& ranges,
     assert(it != _ranges.end());
     const int p = it - _ranges.begin() - 1;
     ++ghost_count[p];
+    assert(_ghosts[i] > _ranges[p] and _ghosts[i] < _ranges[p + 1]);
+    ghost_local.push_back(_ghosts[i] - _ranges[p]);
   }
+  assert(ghost_local.size() == _ghosts.size());
 
   // Find out who is a neighbour (needed for asymmetric graph, since some may
   // only receive but not send back).
@@ -117,18 +121,11 @@ L2GMap::L2GMap(MPI_Comm comm, const std::vector<std::int64_t>& ranges,
 
   // Send global indices to remote processes that own them
   int err = MPI_Neighbor_alltoallv(
-      _ghosts.data(), _send_count.data(), _send_offset.data(), MPI_INT,
-      _indexbuf.data(), _recv_count.data(), _recv_offset.data(), MPI_INT,
+      ghost_local.data(), _send_count.data(), _send_offset.data(), MPI_INT32_T,
+      _indexbuf.data(), _recv_count.data(), _recv_offset.data(), MPI_INT32_T,
       _neighbour_comm);
   if (err != MPI_SUCCESS)
     throw std::runtime_error("MPI failure");
-
-  // Should be in own range, subtract off _r0
-  for (std::int32_t& i : _indexbuf)
-  {
-    assert(i >= r0 and i < r1);
-    i -= r0;
-  }
 
   // Add local_range onto _send_offset (ghosts will be at end of range)
   for (std::int32_t& s : _send_offset)
