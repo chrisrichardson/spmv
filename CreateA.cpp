@@ -85,7 +85,7 @@ spmv::Matrix create_A(MPI_Comm comm, int N)
   }
 
   std::vector<std::int64_t> ghosts(ghost_indices.begin(), ghost_indices.end());
-  auto l2g = std::make_shared<spmv::L2GMap>(comm, ranges, ghosts);
+  auto l2g = std::make_shared<spmv::L2GMap>(comm, M, ghosts);
 
   // Rebuild A using local indices
   Eigen::SparseMatrix<double, Eigen::RowMajor> Alocal(M, M + ghosts.size());

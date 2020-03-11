@@ -37,17 +37,23 @@ MPI_Datatype mpi_type<std::complex<double>>()
 }
 } // namespace
 //-----------------------------------------------------------------------------
-L2GMap::L2GMap(MPI_Comm comm, const std::vector<std::int64_t>& ranges,
+L2GMap::L2GMap(MPI_Comm comm, std::int64_t local_size,
                const std::vector<std::int64_t>& ghosts)
-    : _ranges(ranges), _ghosts(ghosts)
+    : _ghosts(ghosts)
 {
   int mpi_size;
   MPI_Comm_size(comm, &mpi_size);
   MPI_Comm_rank(comm, &_mpi_rank);
 
+  _ranges.resize(mpi_size + 1);
+  _ranges[0] = 0;
+  MPI_Allgather(&local_size, 1, MPI_INT64_T, _ranges.data() + 1, 1, MPI_INT64_T,
+                comm);
+  for (int i = 0; i < mpi_size; ++i)
+    _ranges[i + 1] += _ranges[i];
+
   const std::int64_t r0 = _ranges[_mpi_rank];
   const std::int64_t r1 = _ranges[_mpi_rank + 1];
-  const std::int32_t local_size = r1 - r0;
 
   // Make sure ghosts are in order
   if (!std::is_sorted(_ghosts.begin(), _ghosts.end()))

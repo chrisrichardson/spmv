@@ -180,7 +180,7 @@ spmv::Matrix spmv::read_petsc_binary(MPI_Comm comm, std::string filename)
     if (q.first < col_ranges[mpi_rank] or q.first >= col_ranges[mpi_rank + 1])
       ghosts[q.second - ncols_local] = q.first;
 
-  auto l2g = std::make_shared<spmv::L2GMap>(comm, col_ranges, ghosts);
+  auto l2g = std::make_shared<spmv::L2GMap>(comm, ncols_local, ghosts);
 
   return spmv::Matrix(A, l2g);
 }

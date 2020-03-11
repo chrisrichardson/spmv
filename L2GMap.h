@@ -16,9 +16,9 @@ class L2GMap
 public:
   /// L2GMap (Local to Global Map)
   /// @param comm MPI Comm
-  /// @param ranges Local range on each process
+  /// @param local_size Local size
   /// @param ghosts Ghost indices, owned by other processes
-  L2GMap(MPI_Comm comm, const std::vector<std::int64_t>& ranges,
+  L2GMap(MPI_Comm comm, std::int64_t local_size,
          const std::vector<std::int64_t>& ghosts);
 
   // Destructor destroys neighbour comm
