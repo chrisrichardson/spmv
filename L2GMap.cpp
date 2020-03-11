@@ -37,8 +37,8 @@ MPI_Datatype mpi_type<std::complex<double>>()
 }
 } // namespace
 //-----------------------------------------------------------------------------
-L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
-               const std::vector<index_type>& ghosts)
+L2GMap::L2GMap(MPI_Comm comm, const std::vector<std::int64_t>& ranges,
+               const std::vector<std::int64_t>& ghosts)
     : _ranges(ranges), _ghosts(ghosts)
 {
   int mpi_size;
@@ -47,16 +47,17 @@ L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
 
   const std::int64_t r0 = _ranges[_mpi_rank];
   const std::int64_t r1 = _ranges[_mpi_rank + 1];
-  const index_type local_size = r1 - r0;
+  const std::int64_t local_size = r1 - r0;
 
   // Make sure ghosts are in order
-  std::sort(_ghosts.begin(), _ghosts.end());
+  if (!std::is_sorted(_ghosts.begin(), _ghosts.end()))
+    throw std::runtime_error("Ghosts must be sorted");
 
   // Get count on each process and local index
   std::vector<std::int32_t> ghost_count(mpi_size);
   for (std::size_t i = 0; i < _ghosts.size(); ++i)
   {
-    const index_type idx = _ghosts[i];
+    const std::int64_t idx = _ghosts[i];
 
     if (idx >= r0 and idx < r1)
       throw std::runtime_error("Ghost index in local range");
@@ -123,14 +124,14 @@ L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
     throw std::runtime_error("MPI failure");
 
   // Should be in own range, subtract off _r0
-  for (index_type& i : _indexbuf)
+  for (std::int32_t& i : _indexbuf)
   {
     assert(i >= r0 and i < r1);
     i -= r0;
   }
 
   // Add local_range onto _send_offset (ghosts will be at end of range)
-  for (index_type& s : _send_offset)
+  for (std::int32_t& s : _send_offset)
     s += local_size;
 }
 //-----------------------------------------------------------------------------
@@ -175,7 +176,7 @@ void L2GMap::reverse_update(T* vec_data) const
     vec_data[_indexbuf[i]] += databuf[i];
 }
 //-----------------------------------------------------------------------------
-index_type L2GMap::global_to_local(index_type i) const
+std::int32_t L2GMap::global_to_local(std::int64_t i) const
 {
   const std::int64_t r0 = _ranges[_mpi_rank];
   const std::int64_t r1 = _ranges[_mpi_rank + 1];

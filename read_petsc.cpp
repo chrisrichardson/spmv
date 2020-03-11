@@ -10,14 +10,14 @@
 #include <vector>
 
 // Divide size into N ~equal chunks
-std::vector<std::int32_t> owner_ranges(int size, std::int64_t N)
+std::vector<std::int64_t> owner_ranges(int size, std::int64_t N)
 {
   // Compute number of items per process and remainder
   const std::int64_t n = N / size;
   const std::int64_t r = N % size;
 
   // Compute local range
-  std::vector<std::int32_t> ranges;
+  std::vector<std::int64_t> ranges;
   for (int rank = 0; rank < (size + 1); ++rank)
   {
     if (rank < r)
@@ -39,7 +39,7 @@ spmv::Matrix spmv::read_petsc_binary(MPI_Comm comm, std::string filename)
   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
   std::map<std::int32_t, std::int32_t> col_indices;
-  std::vector<std::int32_t> row_ranges, col_ranges;
+  std::vector<std::int64_t> row_ranges, col_ranges;
   std::int64_t ncols_local, nrows_local;
 
   std::ifstream file(filename.c_str(),
@@ -175,7 +175,7 @@ spmv::Matrix spmv::read_petsc_binary(MPI_Comm comm, std::string filename)
 
   A.makeCompressed();
 
-  std::vector<index_type> ghosts(col_indices.size() - ncols_local);
+  std::vector<std::int64_t> ghosts(col_indices.size() - ncols_local);
   for (auto& q : col_indices)
     if (q.first < col_ranges[mpi_rank] or q.first >= col_ranges[mpi_rank + 1])
       ghosts[q.second - ncols_local] = q.first;
@@ -218,7 +218,7 @@ Eigen::VectorXd spmv::read_petsc_binary_vector(MPI_Comm comm,
       throw std::runtime_error("Bad signature in PETSc Vector file");
 
     int nrows = int_data[1];
-    std::vector<std::int32_t> ranges = owner_ranges(mpi_size, nrows);
+    std::vector<std::int64_t> ranges = owner_ranges(mpi_size, nrows);
 
     if (mpi_rank == 0)
       std::cout << "Read vector file: " << filename << ": " << nrows << "\n";

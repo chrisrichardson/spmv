@@ -8,8 +8,6 @@
 
 #pragma once
 
-typedef Eigen::SparseMatrix<double>::StorageIndex index_type;
-
 namespace spmv
 {
 
@@ -20,8 +18,8 @@ public:
   /// @param comm MPI Comm
   /// @param ranges Local range on each process
   /// @param ghosts Ghost indices, owned by other processes
-  L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
-         const std::vector<index_type>& ghosts);
+  L2GMap(MPI_Comm comm, const std::vector<std::int64_t>& ranges,
+         const std::vector<std::int64_t>& ghosts);
 
   // Destructor destroys neighbour comm
   ~L2GMap();
@@ -44,7 +42,7 @@ public:
   std::int64_t global_offset() const;
 
   // Convert a global index to local
-  index_type global_to_local(index_type i) const;
+  std::int32_t global_to_local(std::int64_t i) const;
 
   // Ghost update - should be done each time *before* matvec
   template <typename T>
@@ -56,22 +54,22 @@ public:
 
 private:
   // Ownership ranges for all processes on global comm
-  std::vector<index_type> _ranges;
+  std::vector<std::int64_t> _ranges;
 
   // Cached mpi rank on global comm
   // Local range is _ranges[_mpi_rank] -> _ranges[_mpi_rank + 1]
   std::int32_t _mpi_rank;
 
   // Forward and reverse maps for ghosts
-  std::map<index_type, index_type> _global_to_local;
-  std::vector<index_type> _ghosts;
+  std::map<std::int64_t, std::int32_t> _global_to_local;
+  std::vector<std::int64_t> _ghosts;
 
   // Indices, counts and offsets for communication
-  std::vector<index_type> _indexbuf;
-  std::vector<index_type> _send_count;
-  std::vector<index_type> _recv_count;
-  std::vector<index_type> _send_offset;
-  std::vector<index_type> _recv_offset;
+  std::vector<std::int32_t> _indexbuf;
+  std::vector<std::int32_t> _send_count;
+  std::vector<std::int32_t> _recv_count;
+  std::vector<std::int32_t> _send_offset;
+  std::vector<std::int32_t> _recv_offset;
 
   MPI_Comm _neighbour_comm;
 };
