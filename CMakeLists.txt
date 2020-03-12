@@ -36,6 +36,7 @@ add_executable(restrictmain restrictmain.cpp)
 target_link_libraries(restrictmain ${PROJECT_NAME})
 
 add_library(${PROJECT_NAME} SHARED read_petsc.cpp L2GMap.cpp cg.cpp Matrix.cpp)
+set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "spmv.h")
 
 if(BLAS_FOUND)
     target_compile_definitions(${PROJECT_NAME} PUBLIC EIGEN_USE_MKL_ALL)
@@ -45,7 +46,7 @@ endif()
 # Target libraries
 target_link_libraries(${PROJECT_NAME} ${MPI_LIBRARIES})
 
-install(TARGETS ${PROJECT_NAME} spmv.h cgmain matvecmain restrictmain
+install(TARGETS ${PROJECT_NAME} cgmain matvecmain restrictmain
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib
     PUBLIC_HEADER DESTINATION include
