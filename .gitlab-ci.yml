@@ -5,5 +5,6 @@ build:
   stage: build
   script:
     - cmake . -DCMAKE_PREFIX_PATH=/usr/local && make -j && make install
+    - export OMP_NUM_THREADS=1
     - matvecmain
     - mpirun -n 2 matvecmain
