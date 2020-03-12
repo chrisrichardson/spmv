@@ -11,9 +11,9 @@ build:
     - apt update && apt -y install cmake libeigen3-dev libmpich-dev g++
   script:
     - cmake . && make -j
-#    artifacts:
-#    paths:
-#      - mybinary
+  artifacts:
+  paths:
+    - matvecmain
       # depending on your build setup it's most likely a good idea to cache outputs to reduce the build time
       # cache:
       #   paths:
