@@ -8,12 +8,12 @@ build:
   # instead of calling g++ directly you can also use some build toolkit like make
   # install the necessary build tools when needed
   before_script:
-    - apt update && apt -y install cmake libeigen3-dev libmpich-dev g++
+    - apt update && apt -y install cmake libeigen3-dev libmpich-dev g++ libmkl-dev
   script:
     - cmake . && make -j
-  artifacts:
-    paths:
-      - mybinary
+#    artifacts:
+#    paths:
+#      - mybinary
       # depending on your build setup it's most likely a good idea to cache outputs to reduce the build time
       # cache:
       #   paths:
