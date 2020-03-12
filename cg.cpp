@@ -17,6 +17,9 @@ spmv::cg(MPI_Comm comm, const spmv::Matrix& A,
 
   int M = A.rows();
 
+  if (b.rows() != M)
+    throw std::runtime_error("spmv::cg - Error: b.rows() != A.rows()");
+
   // Residual vector
   Eigen::VectorXd r(M);
   Eigen::VectorXd y(M);

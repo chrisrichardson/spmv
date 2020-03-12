@@ -1,6 +1,7 @@
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <memory>
+#include <mpi.h>
 
 #pragma once
 
@@ -43,6 +44,11 @@ public:
     return _matA.rows();
   }
 
+static Matrix
+create_matrix(MPI_Comm comm, const Eigen::SparseMatrix<double, Eigen::RowMajor> mat,
+              std::int64_t nrows_local, std::int64_t ncols_local,
+              std::vector<std::int64_t> row_ghosts,
+              std::vector<std::int64_t> col_ghosts);
 
 private:
 

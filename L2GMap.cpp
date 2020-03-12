@@ -74,7 +74,7 @@ L2GMap::L2GMap(MPI_Comm comm, std::int64_t local_size,
     assert(it != _ranges.end());
     const int p = it - _ranges.begin() - 1;
     ++ghost_count[p];
-    assert(_ghosts[i] > _ranges[p] and _ghosts[i] < _ranges[p + 1]);
+    assert(_ghosts[i] >= _ranges[p] and _ghosts[i] < _ranges[p + 1]);
     ghost_local.push_back(_ghosts[i] - _ranges[p]);
   }
   assert(ghost_local.size() == _ghosts.size());
