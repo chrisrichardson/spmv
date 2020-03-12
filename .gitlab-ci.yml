@@ -1,14 +1,14 @@
 # use the official gcc image, based on debian
 # can use verions as well, like gcc:5.2
 # see https://hub.docker.com/_/gcc/
-image: gcc
+image: ubuntu:20.04
 
 build:
   stage: build
   # instead of calling g++ directly you can also use some build toolkit like make
   # install the necessary build tools when needed
   before_script:
-    - apt update && apt -y install cmake libeigen3-dev libmpich-dev
+    - apt update && apt -y install cmake libeigen3-dev libmpich-dev g++
   script:
     - cmake . && make -j
   artifacts:
