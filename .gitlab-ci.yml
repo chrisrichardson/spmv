@@ -10,6 +10,6 @@ build:
   before_script:
     - apt update && apt -y install cmake libeigen3-dev libmpich-dev g++
   script:
-    - cmake . && make -j
-    - ./matvecmain
-    - mpirun -n 2 ./matvecmain
+    - cmake . -DCMAKE_PREFIX_PATH=/usr/local && make -j && make install
+    - matvecmain
+    - mpirun -n 2 matvecmain
