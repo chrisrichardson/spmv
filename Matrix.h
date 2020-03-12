@@ -1,3 +1,6 @@
+// Copyright (C) 2020 Chris Richardson (chris@bpi.cam.ac.uk)
+// SPDX-License-Identifier:    MIT
+
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <memory>

@@ -1,4 +1,5 @@
-
+// Copyright (C) 2020 Chris Richardson (chris@bpi.cam.ac.uk) and Jeffrey Salmond
+// SPDX-License-Identifier:    MIT
 
 #include "Matrix.h"
 #include <iostream>
