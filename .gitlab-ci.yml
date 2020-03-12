@@ -11,6 +11,5 @@ build:
     - apt update && apt -y install cmake libeigen3-dev libmpich-dev g++
   script:
     - cmake . && make -j
-    - export LSAN_OPTIONS=verbosity=1:log_threads=1
     - ./matvecmain
     - mpirun -n 2 ./matvecmain
