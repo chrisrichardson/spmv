@@ -41,6 +41,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "spmv.h")
 if(BLAS_FOUND)
     target_compile_definitions(${PROJECT_NAME} PUBLIC EIGEN_USE_MKL_ALL)
     target_link_libraries(${PROJECT_NAME} ${BLAS_LIBRARIES})
+    include_directories("/usr/include/mkl")
 endif()
 
 # Target libraries
