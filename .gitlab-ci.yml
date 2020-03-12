@@ -12,8 +12,8 @@ build:
   script:
     - cmake . && make -j
   artifacts:
-  paths:
-    - matvecmain
+    paths:
+      - matvecmain
       # depending on your build setup it's most likely a good idea to cache outputs to reduce the build time
       # cache:
       #   paths:
