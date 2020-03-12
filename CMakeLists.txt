@@ -37,6 +37,7 @@ target_link_libraries(restrictmain ${PROJECT_NAME})
 
 add_library(${PROJECT_NAME} SHARED read_petsc.cpp L2GMap.cpp cg.cpp Matrix.cpp)
 set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "spmv.h")
+set_target_properties(${PROJECT_NAME} PROPERTIES PRIVATE_HEADER "L2GMap.h;Matrix.h;read_petsc.h;cg.h")
 
 if(BLAS_FOUND)
     target_compile_definitions(${PROJECT_NAME} PUBLIC EIGEN_USE_MKL_ALL)
