@@ -44,3 +44,8 @@ endif()
 
 # Target libraries
 target_link_libraries(${PROJECT_NAME} ${MPI_LIBRARIES})
+
+install(TARGETS ${PROJECT_NAME} cgmain matvecmain restrictmain
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+)
