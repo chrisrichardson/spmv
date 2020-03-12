@@ -4,10 +4,7 @@ cmake_minimum_required(VERSION 3.5)
 # Choose Release or Debug
 set(CMAKE_BUILD_TYPE Release)
 
-# Use C++11
 set(CMAKE_CXX_STANDARD 17)
-
-# Require C++11
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(PROJECT_NAME spmv)
@@ -15,6 +12,9 @@ project(${PROJECT_NAME})
 
 # Set CMake behavior
 cmake_policy(SET CMP0004 NEW)
+
+set(CMAKE_SKIP_RPATH FALSE)
+set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 
 find_package(MPI REQUIRED)
 
@@ -36,6 +36,7 @@ add_executable(restrictmain restrictmain.cpp)
 target_link_libraries(restrictmain ${PROJECT_NAME})
 
 add_library(${PROJECT_NAME} SHARED read_petsc.cpp L2GMap.cpp cg.cpp Matrix.cpp)
+set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "spmv.h")
 
 if(BLAS_FOUND)
     target_compile_definitions(${PROJECT_NAME} PUBLIC EIGEN_USE_MKL_ALL)
@@ -44,3 +45,9 @@ endif()
 
 # Target libraries
 target_link_libraries(${PROJECT_NAME} ${MPI_LIBRARIES})
+
+install(TARGETS ${PROJECT_NAME} cgmain matvecmain restrictmain
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    PUBLIC_HEADER DESTINATION include
+)
