@@ -11,17 +11,5 @@ build:
     - apt update && apt -y install cmake libeigen3-dev libmpich-dev g++
   script:
     - cmake . && make -j
-  artifacts:
-    paths:
-      - matvecmain
-      - libspmv.so
-      # depending on your build setup it's most likely a good idea to cache outputs to reduce the build time
-      # cache:
-      #   paths:
-      #     - "*.o"
-
-# run tests using the binary built before
-test:
-  stage: test
-  script:
     - ./matvecmain
+    - mpirun -n 2 ./matvecmain
