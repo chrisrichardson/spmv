@@ -52,4 +52,5 @@ install(TARGETS ${PROJECT_NAME} cgmain matvecmain restrictmain
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib
     PUBLIC_HEADER DESTINATION include
+    PRIVATE_HEADER DESTINATION include
 )
