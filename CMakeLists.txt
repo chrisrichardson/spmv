@@ -54,3 +54,16 @@ install(TARGETS ${PROJECT_NAME} cgmain matvecmain restrictmain
     PUBLIC_HEADER DESTINATION include
     PRIVATE_HEADER DESTINATION include
 )
+
+# First attempt at installing a config
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+  libspmvConfig.cmake
+    VERSION ${PACKAGE_VERSION}
+    COMPATIBILITY AnyNewerVersion
+    )
+
+install(EXPORT libspmv
+  FILE libspmvConfig.cmake
+  NAMESPACE spmv::
+  DESTINATION lib/cmake/spmv)
