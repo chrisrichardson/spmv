@@ -50,6 +50,7 @@ endif()
 target_link_libraries(${PROJECT_NAME} ${MPI_LIBRARIES})
 
 install(TARGETS ${PROJECT_NAME} cgmain matvecmain restrictmain
+    EXPORT libspmv
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib
     PUBLIC_HEADER DESTINATION include
