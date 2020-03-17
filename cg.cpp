@@ -102,6 +102,9 @@ spmv::cg(MPI_Comm comm,
 }
 
 #ifdef HAVE_CUDA
+cublasHandle_t blas_handle = NULL;
+cusparseHandle_t handle = NULL;
+
 //-----------------------------------------------------------------------------
 std::tuple<Eigen::VectorXd, int>
 spmv::cg_cuda(MPI_Comm comm,
@@ -110,16 +113,16 @@ spmv::cg_cuda(MPI_Comm comm,
               const Eigen::Ref<const Eigen::VectorXd>& b, int kmax, double rtol)
 {
   // Initialise cuBLAS
-  cublasHandle_t blas_handle;
-  cublas_CHECK(cublasCreate(&blas_handle));
+  if (!blas_handle)
+    cublas_CHECK(cublasCreate(&blas_handle));
+  if (!handle)
+    cusparse_CHECK(cusparseCreate(&handle));
 
   // Copy A over to gpu
-  cusparseHandle_t handle;
   cusparseSpMatDescr_t spmat;
   double* value;
   int *inner, *outer;
 
-  cusparse_CHECK(cusparseCreate(&handle));
   cusparse_CHECK(cusparseSetPointerMode(handle, CUSPARSE_POINTER_MODE_DEVICE));
 
   int nnz = A.nonZeros();
