@@ -54,6 +54,13 @@ L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
   MPI_Comm_size(comm, &mpi_size);
   MPI_Comm_rank(comm, &_mpi_rank);
 
+  _ghosts.reserve(4);
+  _indexbuf.reserve(4);
+  _send_count.reserve(4);
+  _recv_count.reserve(4);
+  _send_offset.reserve(4);
+  _recv_offset.reserve(4);
+
   const std::int64_t r0 = _ranges[_mpi_rank];
   const std::int64_t r1 = _ranges[_mpi_rank + 1];
   const index_type local_size = r1 - r0;
