@@ -6,6 +6,10 @@
 #include <mpi.h>
 #include <vector>
 
+#ifdef HAVE_CUDA
+#include <thrust/device_vector.h>
+#endif
+
 #pragma once
 
 typedef Eigen::SparseMatrix<double>::StorageIndex index_type;
@@ -48,7 +52,14 @@ public:
 
   // Ghost update - should be done each time *before* matvec
   template <typename T>
-  void update(T* vec_data) const;
+  void update(std::vector<T> &) const;
+  void update(Eigen::VectorXd &) const;
+  template <typename T>
+  void update_cpu(T*) const;
+  #ifdef HAVE_CUDA
+  template <typename T>
+  void update(thrust::device_ptr<T> &) const;
+  #endif
 
   // Update the other way, ghost -> local.
   template <typename T>
@@ -70,6 +81,7 @@ private:
   std::vector<index_type> _indexbuf;
 #ifdef HAVE_CUDA
   int *_indexbuf_d;
+  double *_databuf_d;
 #endif
   std::vector<index_type> _send_count;
   std::vector<index_type> _recv_count;

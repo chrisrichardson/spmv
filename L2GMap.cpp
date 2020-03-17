@@ -10,6 +10,11 @@
 #include <set>
 #include <vector>
 
+#ifdef HAVE_CUDA
+#include <thrust/host_vector.h>
+#include <thrust/device_vector.h>
+#endif
+
 #include "shuffle_kernel.h"
 
 using namespace spmv;
@@ -126,16 +131,19 @@ L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
     s += local_size;
 
 #ifdef HAVE_CUDA
-  cudaMalloc(&_indexbuf_d, sizeof(int) * _indexbuf.size());
-  cudaMemcpy(_indexbuf_d, _indexbuf.data(), sizeof(int) * _indexbuf.size(),
-             cudaMemcpyHostToDevice);
+  cuda_CHECK(cudaMalloc(&_indexbuf_d, sizeof(int) * _indexbuf.size()));
+  cuda_CHECK(cudaMemcpy(_indexbuf_d, _indexbuf.data(), sizeof(int) * _indexbuf.size(),
+             cudaMemcpyHostToDevice));
+
+  cuda_CHECK(cudaMalloc(&_databuf_d, sizeof(double) * _indexbuf.size()));
 #endif
 }
 //-----------------------------------------------------------------------------
 L2GMap::~L2GMap() { MPI_Comm_free(&_neighbour_comm); }
 //-----------------------------------------------------------------------------
+#ifdef HAVE_CUDA
 template <typename T>
-void L2GMap::update(T* vec_data) const
+void L2GMap::update(thrust::device_ptr<T> &vec_data) const
 {
   // In serial, nothing to do
   if (_indexbuf.size() == 0)
@@ -143,38 +151,46 @@ void L2GMap::update(T* vec_data) const
 
   MPI_Datatype data_type = mpi_type<T>();
 
-  // Get data from local indices to send to other processes, landing in their
-  // ghost region
+  do_shuffle(_databuf_d, thrust::raw_pointer_cast(vec_data), _indexbuf_d, _indexbuf.size());
 
-  // NB on GPU, vec_data is "device memory", so should also be databuf
-#ifdef HAVE_CUDA
-  T* databuf;
-  cuda_CHECK(cudaMalloc(&databuf, _indexbuf.size() * sizeof(T)));
-#else
+  int err = MPI_Neighbor_alltoallv(
+      _databuf_d, _recv_count.data(), _recv_offset.data(), data_type, thrust::raw_pointer_cast(vec_data),
+      _send_count.data(), _send_offset.data(), data_type, _neighbour_comm);
+  if (err != MPI_SUCCESS)
+    throw std::runtime_error("MPI failure");
+}
+#endif
+
+template <typename T>
+void L2GMap::update_cpu(T *vec_data) const {
+  // In serial, nothing to do
+  if (_indexbuf.size() == 0)
+    return;
+
+  MPI_Datatype data_type = mpi_type<T>();
+
   std::vector<T> buf(_indexbuf.size());
-  T* databuf = buf.data();
-#endif
-
-  // FIXME: How to do on GPU? Another SpMV?
-#ifdef HAVE_CUDA
-  do_shuffle(databuf, vec_data, _indexbuf_d, _indexbuf.size());
-#else
   for (std::size_t i = 0; i < _indexbuf.size(); ++i)
-    databuf[i] = vec_data[_indexbuf[i]];
-#endif
+    buf[i] = vec_data[_indexbuf[i]];
 
   // Send actual values - NB meaning of _send and _recv count/offset is
   // reversed
   int err = MPI_Neighbor_alltoallv(
-      databuf, _recv_count.data(), _recv_offset.data(), data_type, vec_data,
+      buf.data(), _recv_count.data(), _recv_offset.data(), data_type, vec_data,
       _send_count.data(), _send_offset.data(), data_type, _neighbour_comm);
   if (err != MPI_SUCCESS)
     throw std::runtime_error("MPI failure");
-
-#ifdef HAVE_CUDA
-  cuda_CHECK(cudaFree(&databuf));
-#endif
 }
+template <typename T>
+void L2GMap::update(std::vector<T> &vec_data) const
+{
+  update_cpu(vec_data.data());
+}
+void L2GMap::update(Eigen::VectorXd &vec_data) const
+{
+  update_cpu(vec_data.data());
+}
+
 //-----------------------------------------------------------------------------
 template <typename T>
 void L2GMap::reverse_update(T* vec_data) const
@@ -222,12 +238,11 @@ std::int64_t L2GMap::global_size() const { return _ranges.back(); }
 std::int64_t L2GMap::global_offset() const { return _ranges[_mpi_rank]; }
 //-----------------------------------------------------------------------------
 // Explicit instantiation
-template void spmv::L2GMap::update<double>(double*) const;
-// template void spmv::L2GMap::update<float>(float*) const;
-// template void
-// spmv::L2GMap::update<std::complex<float>>(std::complex<float>*) const;
-// template void
-// spmv::L2GMap::update<std::complex<double>>(std::complex<double>*) const;
+template void spmv::L2GMap::update(std::vector<double>&) const;
+#ifdef HAVE_CUDA
+template void spmv::L2GMap::update(thrust::device_ptr<double>&) const;
+#endif
+
 template void spmv::L2GMap::reverse_update<double>(double*) const;
 // template void spmv::L2GMap::reverse_update<float>(float*) const;
 // template void
