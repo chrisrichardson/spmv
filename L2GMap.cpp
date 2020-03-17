@@ -251,9 +251,3 @@ template void spmv::L2GMap::update(thrust::device_ptr<double>&) const;
 #endif
 
 template void spmv::L2GMap::reverse_update<double>(double*) const;
-// template void spmv::L2GMap::reverse_update<float>(float*) const;
-// template void
-// spmv::L2GMap::reverse_update<std::complex<float>>(std::complex<float>*)
-// const; template void
-// spmv::L2GMap::reverse_update<std::complex<double>>(std::complex<double>*)
-// const;
