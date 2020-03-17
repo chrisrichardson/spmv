@@ -31,7 +31,7 @@ int main(int argc, char** argv)
   int mpi_size;
   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
-/* CUDA STUFF */
+#ifdef HAVE_CUDA
   // Get number of local gpus
   int ngpus;
   cuda_CHECK(cudaGetDeviceCount(&ngpus));
@@ -49,7 +49,7 @@ int main(int argc, char** argv)
 
   // Hack
   cuda_CHECK(cudaSetDevice(local_rank));
-/* END CUDA STUFF */
+#endif
 
   // Keep list of timings
   std::map<std::string, std::chrono::duration<double>> timings;
