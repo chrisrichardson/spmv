@@ -17,7 +17,7 @@ project(${PROJECT_NAME} C CXX CUDA)
 cmake_policy(SET CMP0004 NEW)
 # cmake_policy(SET CMP0076 NEW)
 
-set(CMAKE_CXX_FLAGS "-g -Werror=all")
+#set(CMAKE_CXX_FLAGS "-g -Werror=all")
 
 find_package(MPI REQUIRED)
 
@@ -36,7 +36,7 @@ add_executable(restrictmain restrictmain.cpp)
 target_link_libraries(restrictmain ${PROJECT_NAME})
 
 # Library
-add_library(${PROJECT_NAME} SHARED read_petsc.cpp CreateA.cpp L2GMap.cpp cg.cpp shuffle_kernel.cu)
+add_library(${PROJECT_NAME} SHARED read_petsc.cpp CreateA.cpp L2GMap.cpp cg.cpp)
 
 if(BLAS_FOUND)
   target_compile_definitions(${PROJECT_NAME} PUBLIC EIGEN_USE_MKL_ALL)
@@ -49,6 +49,7 @@ target_link_libraries(${PROJECT_NAME} ${MPI_LIBRARIES})
 # in cmake 17 this should be find_package(CUDAToolkit)
 find_package(CUDA)
 if (CUDA_FOUND)
+    target_sources(${PROJECT_NAME} PRIVATE shuffle_kernel.cu)
     target_compile_definitions(${PROJECT_NAME} PUBLIC HAVE_CUDA)
     include_directories(${CUDA_INCLUDE_DIRS})
     target_link_libraries(${PROJECT_NAME} ${CUDA_cusparse_LIBRARY} ${CUDA_cublas_LIBRARY} ${CUDA_LIBRARIES})
