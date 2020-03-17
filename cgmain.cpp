@@ -82,9 +82,12 @@ int main(int argc, char** argv)
   // Turn on profiling for solver only
   MPI_Pcontrol(1);
   timer_start = std::chrono::system_clock::now();
+#ifdef HAVE_CUDA
+  auto [x, num_its] = spmv::cg_cuda(MPI_COMM_WORLD, A, l2g, b, max_its, rtol);
+#else
   auto [x, num_its] = spmv::cg(MPI_COMM_WORLD, A, l2g, b, max_its, rtol);
+#endif
   timer_end = std::chrono::system_clock::now();
-  timings["0.Solve(CPU)"] += (timer_end - timer_start);
   timings["0.Solve"] += (timer_end - timer_start);
   MPI_Pcontrol(0);
 
@@ -95,17 +98,6 @@ int main(int argc, char** argv)
   if (mpi_rank == 0)
     std::cout << "x.norm = " << std::sqrt(xnorm_sum) << " in " << num_its
               << "\n";
-
-#ifdef HAVE_CUDA
-  timer_start = std::chrono::system_clock::now();
-  std::tie(x, num_its)
-      = spmv::cg_cuda(MPI_COMM_WORLD, A, l2g, b, max_its, rtol);
-  timer_end = std::chrono::system_clock::now();
-  timings["0.Solve(CUDA)"] += (timer_end - timer_start);
-
-  xnorm = x.squaredNorm();
-  MPI_Allreduce(&xnorm, &xnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-#endif
 
   // Test result - prepare ghosted vector
   Eigen::VectorXd xsp(l2g->local_size(true));
