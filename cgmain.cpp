@@ -110,7 +110,7 @@ int main(int argc, char** argv)
   // Test result - prepare ghosted vector
   Eigen::VectorXd xsp(l2g->local_size(true));
   xsp.head(A.rows()) = x;
-  l2g->update(xsp.data());
+  l2g->update(xsp);
 
   Eigen::VectorXd r = A * xsp - b;
   double rnorm = r.squaredNorm();
