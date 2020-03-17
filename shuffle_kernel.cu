@@ -1,6 +1,6 @@
 #include "shuffle_kernel.h"
 
-__global__ void shuffle_kernel(double *databuf, double *vec_data, int *_indexbuf, int indexbuf_sz) {
+__global__ void shuffle_kernel(double *databuf, double *vec_data, int *_indexbuf, std::size_t indexbuf_sz) {
     size_t i = threadIdx.x + blockIdx.x * blockDim.x;
 
     if (i >= indexbuf_sz)
@@ -9,7 +9,7 @@ __global__ void shuffle_kernel(double *databuf, double *vec_data, int *_indexbuf
     databuf[i] = vec_data[_indexbuf[i]];
 }
 
-void do_shuffle(double *databuf, double *vec_data, int *indexbuf, int n) {
+void do_shuffle(double *databuf, double *vec_data, int *indexbuf, std::size_t n) {
 
   int block_size = 16;
   int blocks = std::ceil(n/double(block_size));
