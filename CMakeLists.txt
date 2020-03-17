@@ -11,7 +11,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(PROJECT_NAME spmv)
-project(${PROJECT_NAME} C CXX CUDA)
+project(${PROJECT_NAME} C CXX)
 
 # Set CMake behavior
 cmake_policy(SET CMP0004 NEW)
@@ -49,6 +49,7 @@ target_link_libraries(${PROJECT_NAME} ${MPI_LIBRARIES})
 # in cmake 17 this should be find_package(CUDAToolkit)
 find_package(CUDA)
 if (CUDA_FOUND)
+    enable_language(CUDA)
     target_sources(${PROJECT_NAME} PRIVATE shuffle_kernel.cu)
     target_compile_definitions(${PROJECT_NAME} PUBLIC HAVE_CUDA)
     include_directories(${CUDA_INCLUDE_DIRS})
