@@ -8,14 +8,13 @@
 #include <iostream>
 
 #include "L2GMap.h"
+#include "Matrix.h"
 #include "cg.h"
 #include "cuda_check.h"
-#include "Matrix.h"
 
 #ifdef HAVE_CUDA
 #include <thrust/device_malloc.h>
 #endif
-
 
 //-----------------------------------------------------------------------------
 std::tuple<Eigen::VectorXd, int>
@@ -90,8 +89,7 @@ cusparseHandle_t handle = NULL;
 
 //-----------------------------------------------------------------------------
 std::tuple<Eigen::VectorXd, int>
-spmv::cg_cuda(MPI_Comm comm,
-              const spmv::Matrix& A,
+spmv::cg_cuda(MPI_Comm comm, const spmv::Matrix& A,
               const Eigen::Ref<const Eigen::VectorXd>& b, int kmax, double rtol)
 {
   // Initialise cuBLAS
@@ -147,9 +145,10 @@ spmv::cg_cuda(MPI_Comm comm,
   // Allocate p in GPU
   cusparseDnVecDescr_t vecP;
   thrust::device_ptr<double> psp = thrust::device_malloc<double>(cols);
-  //double* psp;
-  //cudaMalloc(&psp, cols * sizeof(double));
-  cusparse_CHECK(cusparseCreateDnVec(&vecP, cols, thrust::raw_pointer_cast(psp), CUDA_R_64F));
+  // double* psp;
+  // cudaMalloc(&psp, cols * sizeof(double));
+  cusparse_CHECK(cusparseCreateDnVec(&vecP, cols, thrust::raw_pointer_cast(psp),
+                                     CUDA_R_64F));
 
   // Solution vector x
   double* x;
@@ -172,8 +171,8 @@ spmv::cg_cuda(MPI_Comm comm,
                         cudaMemcpyHostToDevice));
 
   // p = r;
-  cuda_CHECK(
-      cudaMemcpy(thrust::raw_pointer_cast(psp), r, rows * sizeof(double), cudaMemcpyDeviceToDevice));
+  cuda_CHECK(cudaMemcpy(thrust::raw_pointer_cast(psp), r, rows * sizeof(double),
+                        cudaMemcpyDeviceToDevice));
 
   double rnorm; // = r.squaredNorm();
   cublas_CHECK(cublasDdot(blas_handle, rows, r, 1, r, 1, &rnorm));
@@ -192,7 +191,8 @@ spmv::cg_cuda(MPI_Comm comm,
 
     // Calculate alpha = r.r/p.y
     double pdoty; // = p.dot(y);
-    cublas_CHECK(cublasDdot(blas_handle, rows, thrust::raw_pointer_cast(psp), 1, y, 1, &pdoty));
+    cublas_CHECK(cublasDdot(blas_handle, rows, thrust::raw_pointer_cast(psp), 1,
+                            y, 1, &pdoty));
 
     double pdoty_sum;
     MPI_Allreduce(&pdoty, &pdoty_sum, 1, MPI_DOUBLE, MPI_SUM, comm);
@@ -200,7 +200,8 @@ spmv::cg_cuda(MPI_Comm comm,
 
     // Update x and r
     //    x += alpha * p;
-    cublas_CHECK(cublasDaxpy(blas_handle, rows, &alpha, thrust::raw_pointer_cast(psp), 1, x, 1));
+    cublas_CHECK(cublasDaxpy(blas_handle, rows, &alpha,
+                             thrust::raw_pointer_cast(psp), 1, x, 1));
 
     //    r -= alpha * y;
     alpha = -alpha;
@@ -218,8 +219,10 @@ spmv::cg_cuda(MPI_Comm comm,
     //    p *= beta;
     //    p += r;
     double one = 1.0;
-    cublas_CHECK(cublasDscal(blas_handle, rows, &beta, thrust::raw_pointer_cast(psp), 1));
-    cublas_CHECK(cublasDaxpy(blas_handle, rows, &one, r, 1, thrust::raw_pointer_cast(psp), 1));
+    cublas_CHECK(cublasDscal(blas_handle, rows, &beta,
+                             thrust::raw_pointer_cast(psp), 1));
+    cublas_CHECK(cublasDaxpy(blas_handle, rows, &one, r, 1,
+                             thrust::raw_pointer_cast(psp), 1));
 
     if (rnorm_new / rnorm0 < rtol)
     {
