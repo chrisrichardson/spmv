@@ -8,10 +8,6 @@
 #include <memory>
 #include <mpi.h>
 
-#ifdef EIGEN_USE_MKL_ALL
-#include <mkl.h>
-#endif
-
 #include "CreateA.h"
 #include "L2GMap.h"
 #include "Matrix.h"
