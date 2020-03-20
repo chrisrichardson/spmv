@@ -1,5 +1,5 @@
 // Copyright (C) 2020 Chris Richardson (chris@bpi.cam.ac.uk) and Jeffrey Salmond
-// SPDX-License-Identifier:    LGPL-3.0-or-later
+// SPDX-License-Identifier:    MIT
 
 #ifdef EIGEN_USE_MKL_ALL
 #include <mkl.h>
@@ -10,52 +10,36 @@
 #include "L2GMap.h"
 #include "cg.h"
 #include "cuda_check.h"
+#include "Matrix.h"
 
 #ifdef HAVE_CUDA
 #include <thrust/device_malloc.h>
 #endif
 
+
 //-----------------------------------------------------------------------------
 std::tuple<Eigen::VectorXd, int>
-spmv::cg(MPI_Comm comm,
-         Eigen::Ref<Eigen::SparseMatrix<double, Eigen::RowMajor>> A,
-         const std::shared_ptr<const spmv::L2GMap> l2g,
+spmv::cg(MPI_Comm comm, const spmv::Matrix& A,
          const Eigen::Ref<const Eigen::VectorXd>& b, int kmax, double rtol)
 {
   int mpi_rank;
   MPI_Comm_rank(comm, &mpi_rank);
 
-#ifdef EIGEN_USE_MKL_ALL
-  sparse_matrix_t A_mkl;
-  sparse_status_t status = mkl_sparse_d_create_csr(
-      &A_mkl, SPARSE_INDEX_BASE_ZERO, A.rows(), A.cols(), A.outerIndexPtr(),
-      A.outerIndexPtr() + 1, A.innerIndexPtr(), A.valuePtr());
-  assert(status == SPARSE_STATUS_SUCCESS);
-
-  status = mkl_sparse_optimize(A_mkl);
-  assert(status == SPARSE_STATUS_SUCCESS);
-
-  if (status != SPARSE_STATUS_SUCCESS)
-    throw std::runtime_error("Could not create MKL matrix");
-
-  struct matrix_descr mat_desc;
-  mat_desc.type = SPARSE_MATRIX_TYPE_GENERAL;
-  mat_desc.diag = SPARSE_DIAG_NON_UNIT;
-#endif
+  std::shared_ptr<const spmv::L2GMap> l2g = A.col_map();
 
   int M = A.rows();
 
   // Residual vector
   Eigen::VectorXd r(M);
   Eigen::VectorXd y(M);
-  Eigen::VectorXd x(M);
+  Eigen::VectorXd x(l2g->local_size(true));
   Eigen::VectorXd psp(l2g->local_size(true));
   Eigen::Map<Eigen::VectorXd> p(psp.data(), M);
 
   // Assign to dense part of sparse vector
-  r = b;
-  p = b;
   x.setZero();
+  r = b; // b - A * x0
+  p = r;
 
   double rnorm = r.squaredNorm();
   double rnorm0;
@@ -63,17 +47,15 @@ spmv::cg(MPI_Comm comm,
 
   // Iterations of CG
   double rnorm_old = rnorm0;
-  for (int k = 0; k < kmax; ++k)
+  int k = 0;
+  while (k < kmax)
   {
-    // y = A.p
-    l2g->update(psp);
+    ++k;
 
-#ifdef EIGEN_USE_MKL_ALL
-    mkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A_mkl, mat_desc,
-                    psp.data(), 0.0, y.data());
-#else
+    // y = A.p
+    l2g->update(psp.data());
+
     y = A * psp;
-#endif
 
     // Calculate alpha = r.r/p.y
     double pdoty = p.dot(y);
@@ -82,7 +64,7 @@ spmv::cg(MPI_Comm comm,
     double alpha = rnorm_old / pdoty_sum;
 
     // Update x and r
-    x += alpha * p;
+    x.head(M) += alpha * p;
     r -= alpha * y;
 
     // Update rnorm
@@ -96,9 +78,10 @@ spmv::cg(MPI_Comm comm,
     p = p * beta + r;
 
     if (rnorm_new / rnorm0 < rtol)
-      return {x, k};
+      break;
   }
-  return {x, kmax};
+
+  return {x, k};
 }
 
 #ifdef HAVE_CUDA

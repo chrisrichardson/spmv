@@ -1,5 +1,5 @@
 // Copyright (C) 2018-2020 Chris Richardson (chris@bpi.cam.ac.uk)
-// SPDX-License-Identifier:    LGPL-3.0-or-later
+// SPDX-License-Identifier:    MIT
 
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
@@ -16,11 +16,8 @@
 #include "L2GMap.h"
 #include "read_petsc.h"
 
-//-----------------------------------------------------------------------------
-int main(int argc, char** argv)
+void restrict_main()
 {
-  MPI_Init(&argc, &argv);
-
   int mpi_rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
   int mpi_size;
@@ -31,29 +28,16 @@ int main(int argc, char** argv)
 
   auto timer_start = std::chrono::system_clock::now();
   // Read in a PETSc binary format matrix
-  auto [R, l2g] = spmv::read_petsc_binary(MPI_COMM_WORLD, "R4.dat");
+  auto R = spmv::read_petsc_binary(MPI_COMM_WORLD, "R4.dat");
+  auto q = spmv::read_petsc_binary_vector(MPI_COMM_WORLD, "b4.dat");
 
   // Get local and global sizes
   std::int64_t M = R.rows();
+  auto l2g = R.col_map();
   std::int64_t N = l2g->global_size();
 
-#ifdef EIGEN_USE_MKL_ALL
-  sparse_matrix_t R_mkl;
-  sparse_status_t status = mkl_sparse_d_create_csr(
-      &R_mkl, SPARSE_INDEX_BASE_ZERO, R.rows(), R.cols(), R.outerIndexPtr(),
-      R.outerIndexPtr() + 1, R.innerIndexPtr(), R.valuePtr());
-  assert(status == SPARSE_STATUS_SUCCESS);
+  std::cout << "Vector = " << q.size() << " " << M << "\n";
 
-  status = mkl_sparse_optimize(R_mkl);
-  assert(status == SPARSE_STATUS_SUCCESS);
-
-  if (status != SPARSE_STATUS_SUCCESS)
-    throw std::runtime_error("Could not create MKL matrix");
-
-  struct matrix_descr mat_desc;
-  mat_desc.type = SPARSE_MATRIX_TYPE_GENERAL;
-  mat_desc.diag = SPARSE_DIAG_NON_UNIT;
-#endif
   auto timer_end = std::chrono::system_clock::now();
   timings["0.PetscRead"] += (timer_end - timer_start);
 
@@ -65,14 +49,6 @@ int main(int argc, char** argv)
   // Vector in "column space" with extra space for ghosts at end
   Eigen::VectorXd psp(l2g->local_size(true));
 
-  // Set up values in local range (column space)
-  int r0 = l2g->global_offset();
-  for (int i = 0; i < l2g->local_size(true); ++i)
-  {
-    double z = (double)(i + r0) / double(N);
-    psp[i] = exp(-10 * pow(5 * (z - 0.5), 2.0));
-  }
-
   timer_end = std::chrono::system_clock::now();
   timings["1.VecCreate"] += (timer_end - timer_start);
 
@@ -80,47 +56,40 @@ int main(int argc, char** argv)
   if (mpi_rank == 0)
     std::cout << "Applying matrix\n";
 
-  // Prolongate
-  Eigen::VectorXd q(M);
-  timer_start = std::chrono::system_clock::now();
-  l2g->update(psp.data());
-  timer_end = std::chrono::system_clock::now();
-  timings["2.SparseUpdate"] += (timer_end - timer_start);
+  double pnorm_sum, qnorm_sum;
+  for (int i = 0; i < 10; ++i)
+  {
+    // Restrict
+    timer_start = std::chrono::system_clock::now();
+    psp = R.transpmult(q);
 
-  timer_start = std::chrono::system_clock::now();
-#ifdef EIGEN_USE_MKL_ALL
-  mkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, R_mkl, mat_desc,
-                  psp.data(), 0.0, q.data());
-#else
-  q = R * psp;
-#endif
-  timer_end = std::chrono::system_clock::now();
-  timings["3.SpMV"] += (timer_end - timer_start);
+    timer_end = std::chrono::system_clock::now();
+    timings["3.SpMV"] += (timer_end - timer_start);
 
-  double qnorm = q.squaredNorm();
-  double qnorm_sum;
-  MPI_Allreduce(&qnorm, &qnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    timer_start = std::chrono::system_clock::now();
+    l2g->reverse_update(psp.data());
+    timer_end = std::chrono::system_clock::now();
+    timings["2.SparseUpdate"] += (timer_end - timer_start);
 
-  // Reverse (restrict)
-  timer_start = std::chrono::system_clock::now();
-#ifdef EIGEN_USE_MKL_ALL
-  mkl_sparse_d_mv(SPARSE_OPERATION_TRANSPOSE, 1.0, R_mkl, mat_desc, q.data(),
-                  0.0, psp.data());
-#else
-  psp = R.transpose() * q;
-#endif
-  timer_end = std::chrono::system_clock::now();
-  timings["3.SpMV"] += (timer_end - timer_start);
+    Eigen::Map<Eigen::VectorXd> p(psp.data(), l2g->local_size(false));
+    double pnorm = p.squaredNorm();
+    MPI_Allreduce(&pnorm, &pnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-  timer_start = std::chrono::system_clock::now();
-  l2g->reverse_update(psp.data());
-  timer_end = std::chrono::system_clock::now();
-  timings["2.SparseUpdate"] += (timer_end - timer_start);
+    // Prolongate
+    timer_start = std::chrono::system_clock::now();
+    l2g->update(psp.data());
+    timer_end = std::chrono::system_clock::now();
+    timings["2.SparseUpdate"] += (timer_end - timer_start);
 
-  Eigen::Map<Eigen::VectorXd> p(psp.data(), l2g->local_size(false));
-  double pnorm = p.squaredNorm();
-  double pnorm_sum;
-  MPI_Allreduce(&pnorm, &pnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    timer_start = std::chrono::system_clock::now();
+    q = R * psp;
+
+    timer_end = std::chrono::system_clock::now();
+    timings["3.SpMV"] += (timer_end - timer_start);
+
+    double qnorm = q.squaredNorm();
+    MPI_Allreduce(&qnorm, &qnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  }
 
   if (mpi_rank == 0)
     std::cout << "\nTimings (" << mpi_size
@@ -128,6 +97,10 @@ int main(int argc, char** argv)
 
   std::chrono::duration<double> total_time
       = std::chrono::duration<double>::zero();
+  for (auto q : timings)
+    total_time += q.second;
+  timings["Total"] = total_time;
+
   for (auto q : timings)
   {
     double q_local = q.second.count(), q_max, q_min;
@@ -140,24 +113,21 @@ int main(int argc, char** argv)
       std::cout << "[" << q.first << "]" << pad << q_min << '\t' << q_max
                 << "\n";
     }
-    total_time += q.second;
   }
 
-  double total_local = total_time.count(), total_min, total_max;
-  MPI_Reduce(&total_local, &total_max, 1, MPI_DOUBLE, MPI_MAX, 0,
-             MPI_COMM_WORLD);
-  MPI_Reduce(&total_local, &total_min, 1, MPI_DOUBLE, MPI_MIN, 0,
-             MPI_COMM_WORLD);
   if (mpi_rank == 0)
   {
-    std::cout << "[Total]           " << total_min << '\t' << total_max << "\n";
     std::cout << "----------------------------\n";
     std::cout << "norm q = " << qnorm_sum << "\n";
     std::cout << "norm p = " << pnorm_sum << "\n";
   }
+}
+//-----------------------------------------------------------------------------
+int main(int argc, char** argv)
+{
+  MPI_Init(&argc, &argv);
 
-  // Need to destroy L2G here before MPI_Finalize, because it holds a comm
-  l2g.reset();
+  restrict_main();
 
   MPI_Finalize();
   return 0;

@@ -1,5 +1,5 @@
 // Copyright (C) 2018-2020 Chris Richardson (chris@bpi.cam.ac.uk)
-// SPDX-License-Identifier:    LGPL-3.0-or-later
+// SPDX-License-Identifier:    MIT
 
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
@@ -14,13 +14,11 @@
 
 #include "CreateA.h"
 #include "L2GMap.h"
+#include "Matrix.h"
 #include "read_petsc.h"
 
-//-----------------------------------------------------------------------------
-int main(int argc, char** argv)
+void matvec_main()
 {
-  MPI_Init(&argc, &argv);
-
   int mpi_rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
   int mpi_size;
@@ -32,32 +30,17 @@ int main(int argc, char** argv)
   auto timer_start = std::chrono::system_clock::now();
 
   // Either create a simple 1D stencil
-  auto [A, l2g] = create_A(MPI_COMM_WORLD, 50000 * mpi_size);
+  spmv::Matrix A = create_A(MPI_COMM_WORLD, 500000);
 
   // Or read file created with "-ksp_view_mat binary" option
-  //  auto [A, l2g] = read_petsc_binary(MPI_COMM_WORLD, "binaryoutput");
+  //  spmv::Matrix A = spmv::read_petsc_binary(MPI_COMM_WORLD, "A4.dat");
+
+  std::shared_ptr<const spmv::L2GMap> l2g = A.col_map();
+  Eigen::VectorXd b(A.rows());
 
   // Get local and global sizes
   std::int64_t M = A.rows();
   std::int64_t N = l2g->global_size();
-
-#ifdef EIGEN_USE_MKL_ALL
-  sparse_matrix_t A_mkl;
-  sparse_status_t status = mkl_sparse_d_create_csr(
-      &A_mkl, SPARSE_INDEX_BASE_ZERO, A.rows(), A.cols(), A.outerIndexPtr(),
-      A.outerIndexPtr() + 1, A.innerIndexPtr(), A.valuePtr());
-  assert(status == SPARSE_STATUS_SUCCESS);
-
-  status = mkl_sparse_optimize(A_mkl);
-  assert(status == SPARSE_STATUS_SUCCESS);
-
-  if (status != SPARSE_STATUS_SUCCESS)
-    throw std::runtime_error("Could not create MKL matrix");
-
-  struct matrix_descr mat_desc;
-  mat_desc.type = SPARSE_MATRIX_TYPE_GENERAL;
-  mat_desc.diag = SPARSE_DIAG_NON_UNIT;
-#endif
 
   auto timer_end = std::chrono::system_clock::now();
   //    timings["0.MatCreate"] += (timer_end - timer_start);
@@ -96,12 +79,7 @@ int main(int argc, char** argv)
     timings["2.SparseUpdate"] += (timer_end - timer_start);
 
     timer_start = std::chrono::system_clock::now();
-#ifdef EIGEN_USE_MKL_ALL
-    mkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A_mkl, mat_desc,
-                    psp.data(), 0.0, q.data());
-#else
     q = A * psp;
-#endif
     timer_end = std::chrono::system_clock::now();
     timings["3.SpMV"] += (timer_end - timer_start);
 
@@ -122,6 +100,10 @@ int main(int argc, char** argv)
   std::chrono::duration<double> total_time
       = std::chrono::duration<double>::zero();
   for (auto q : timings)
+    total_time += q.second;
+  timings["Total"] = total_time;
+
+  for (auto q : timings)
   {
     double q_local = q.second.count(), q_max, q_min;
     MPI_Reduce(&q_local, &q_max, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
@@ -133,23 +115,21 @@ int main(int argc, char** argv)
       std::cout << "[" << q.first << "]" << pad << q_min << '\t' << q_max
                 << "\n";
     }
-    total_time += q.second;
   }
 
-  double total_local = total_time.count(), total_min, total_max;
-  MPI_Reduce(&total_local, &total_max, 1, MPI_DOUBLE, MPI_MAX, 0,
-             MPI_COMM_WORLD);
-  MPI_Reduce(&total_local, &total_min, 1, MPI_DOUBLE, MPI_MIN, 0,
-             MPI_COMM_WORLD);
   if (mpi_rank == 0)
   {
-    std::cout << "[Total]           " << total_min << '\t' << total_max << "\n";
     std::cout << "----------------------------\n";
     std::cout << "norm = " << pnorm_sum << "\n";
   }
+}
 
-  // Need to destroy L2G here before MPI_Finalize, because it holds a comm
-  l2g.reset();
+//-----------------------------------------------------------------------------
+int main(int argc, char** argv)
+{
+  MPI_Init(&argc, &argv);
+
+  matvec_main();
 
   MPI_Finalize();
   return 0;

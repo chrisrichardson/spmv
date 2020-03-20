@@ -1,5 +1,5 @@
 // Copyright (C) 2018-2020 Chris Richardson (chris@bpi.cam.ac.uk)
-// SPDX-License-Identifier:    LGPL-3.0-or-later
+// SPDX-License-Identifier:    MIT
 
 #ifdef EIGEN_USE_MKL_ALL
 #include <mkl.h>
@@ -14,15 +14,15 @@
 
 #include "CreateA.h"
 #include "L2GMap.h"
+#include "Matrix.h"
 #include "cg.h"
 #include "read_petsc.h"
 
 #include "cuda_check.h"
 
 //-----------------------------------------------------------------------------
-int main(int argc, char** argv)
+int cg_main(int argc, char** argv)
 {
-  MPI_Init(&argc, &argv);
   // Turn off profiling
   MPI_Pcontrol(0);
 
@@ -55,16 +55,17 @@ int main(int argc, char** argv)
   std::map<std::string, std::chrono::duration<double>> timings;
 
   auto timer_start = std::chrono::system_clock::now();
-  // Either create a simple 1D stencil
+
   std::string argv1;
   if (argc == 2)
     argv1 = argv[1];
   else
     throw std::runtime_error("Use with filename");
 
-  std::string cores = std::to_string(mpi_size);
-  auto [A, l2g]
+  auto A
       = spmv::read_petsc_binary(MPI_COMM_WORLD, "petsc_mat" + argv1 + ".dat");
+  std::shared_ptr<const spmv::L2GMap> l2g = A.col_map();
+
   auto b = spmv::read_petsc_binary_vector(MPI_COMM_WORLD,
                                           "petsc_vec" + argv1 + ".dat");
   // Get local and global sizes
@@ -83,28 +84,22 @@ int main(int argc, char** argv)
   MPI_Pcontrol(1);
   timer_start = std::chrono::system_clock::now();
 #ifdef HAVE_CUDA
-  auto [x, num_its] = spmv::cg_cuda(MPI_COMM_WORLD, A, l2g, b, max_its, rtol);
+  auto [x, num_its] = spmv::cg_cuda(MPI_COMM_WORLD, A, b, max_its, rtol);
 #else
-  auto [x, num_its] = spmv::cg(MPI_COMM_WORLD, A, l2g, b, max_its, rtol);
+  auto [x, num_its] = spmv::cg(MPI_COMM_WORLD, A, b, max_its, rtol);
 #endif
   timer_end = std::chrono::system_clock::now();
-  timings["0.Solve"] += (timer_end - timer_start);
+  timings["1.Solve"] += (timer_end - timer_start);
   MPI_Pcontrol(0);
 
-  double xnorm = x.squaredNorm();
+  // Get norm on local part of vector
+  double xnorm = x.head(l2g->local_size(false)).squaredNorm();
   double xnorm_sum;
   MPI_Allreduce(&xnorm, &xnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-  if (mpi_rank == 0)
-    std::cout << "x.norm = " << std::sqrt(xnorm_sum) << " in " << num_its
-              << "\n";
-
-  // Test result - prepare ghosted vector
-  Eigen::VectorXd xsp(l2g->local_size(true));
-  xsp.head(A.rows()) = x;
-  l2g->update(xsp);
-
-  Eigen::VectorXd r = A * xsp - b;
+  // Test result
+  l2g->update(x.data());
+  Eigen::VectorXd r = A * x - b;
   double rnorm = r.squaredNorm();
   double rnorm_sum;
   MPI_Allreduce(&rnorm, &rnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
@@ -121,6 +116,10 @@ int main(int argc, char** argv)
   std::chrono::duration<double> total_time
       = std::chrono::duration<double>::zero();
   for (auto q : timings)
+    total_time += q.second;
+  timings["Total"] = total_time;
+
+  for (auto q : timings)
   {
     double q_local = q.second.count(), q_max, q_min;
     MPI_Reduce(&q_local, &q_max, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
@@ -132,22 +131,20 @@ int main(int argc, char** argv)
       std::cout << "[" << q.first << "]" << pad << q_min << '\t' << q_max
                 << "\n";
     }
-    total_time += q.second;
   }
 
-  double total_local = total_time.count(), total_min, total_max;
-  MPI_Reduce(&total_local, &total_max, 1, MPI_DOUBLE, MPI_MAX, 0,
-             MPI_COMM_WORLD);
-  MPI_Reduce(&total_local, &total_min, 1, MPI_DOUBLE, MPI_MIN, 0,
-             MPI_COMM_WORLD);
   if (mpi_rank == 0)
-  {
-    std::cout << "[Total]           " << total_min << '\t' << total_max << "\n";
     std::cout << "----------------------------\n";
-  }
 
-  // Need to destroy L2G here before MPI_Finalize, because it holds a comm
-  l2g.reset();
+  return 0;
+}
+//-----------------------------------------------------------------------------
+int main(int argc, char** argv)
+{
+  MPI_Init(&argc, &argv);
+
+  cg_main(argc, argv);
+
   MPI_Finalize();
   return 0;
 }

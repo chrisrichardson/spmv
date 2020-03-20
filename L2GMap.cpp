@@ -1,5 +1,5 @@
 // Copyright (C) 2020 Chris Richardson (chris@bpi.cam.ac.uk)
-// SPDX-License-Identifier:    LGPL-3.0-or-later
+// SPDX-License-Identifier:    MIT
 
 #include "L2GMap.h"
 #include "cuda_check.h"
@@ -24,31 +24,31 @@ namespace
 template <typename T>
 MPI_Datatype mpi_type();
 
-template <>
-MPI_Datatype mpi_type<float>()
-{
-  return MPI_FLOAT;
-}
-template <>
-MPI_Datatype mpi_type<std::complex<float>>()
-{
-  return MPI_C_FLOAT_COMPLEX;
-}
+// template <>
+// MPI_Datatype mpi_type<float>()
+// {
+//   return MPI_FLOAT;
+// }
+// template <>
+// MPI_Datatype mpi_type<std::complex<float>>()
+// {
+//   return MPI_C_FLOAT_COMPLEX;
+// }
 template <>
 MPI_Datatype mpi_type<double>()
 {
   return MPI_DOUBLE;
 }
-template <>
-MPI_Datatype mpi_type<std::complex<double>>()
-{
-  return MPI_DOUBLE_COMPLEX;
-}
+// template <>
+// MPI_Datatype mpi_type<std::complex<double>>()
+// {
+//   return MPI_DOUBLE_COMPLEX;
+// }
 } // namespace
 //-----------------------------------------------------------------------------
-L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
-               const std::vector<index_type>& ghosts)
-    : _ranges(ranges), _ghosts(ghosts)
+L2GMap::L2GMap(MPI_Comm comm, std::int64_t local_size,
+               const std::vector<std::int64_t>& ghosts)
+    : _ghosts(ghosts)
 {
   int mpi_size;
   MPI_Comm_size(comm, &mpi_size);
@@ -61,18 +61,26 @@ L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
   _send_offset.reserve(4);
   _recv_offset.reserve(4);
 
+  _ranges.resize(mpi_size + 1);
+  _ranges[0] = 0;
+  MPI_Allgather(&local_size, 1, MPI_INT64_T, _ranges.data() + 1, 1, MPI_INT64_T,
+                comm);
+  for (int i = 0; i < mpi_size; ++i)
+    _ranges[i + 1] += _ranges[i];
+
   const std::int64_t r0 = _ranges[_mpi_rank];
   const std::int64_t r1 = _ranges[_mpi_rank + 1];
-  const index_type local_size = r1 - r0;
 
   // Make sure ghosts are in order
-  std::sort(_ghosts.begin(), _ghosts.end());
+  if (!std::is_sorted(_ghosts.begin(), _ghosts.end()))
+    throw std::runtime_error("Ghosts must be sorted");
 
   // Get count on each process and local index
   std::vector<std::int32_t> ghost_count(mpi_size);
+  std::vector<std::int32_t> ghost_local;
   for (std::size_t i = 0; i < _ghosts.size(); ++i)
   {
-    const index_type idx = _ghosts[i];
+    const std::int64_t idx = _ghosts[i];
 
     if (idx >= r0 and idx < r1)
       throw std::runtime_error("Ghost index in local range");
@@ -82,16 +90,31 @@ L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
     assert(it != _ranges.end());
     const int p = it - _ranges.begin() - 1;
     ++ghost_count[p];
+    assert(_ghosts[i] > _ranges[p] and _ghosts[i] < _ranges[p + 1]);
+    ghost_local.push_back(_ghosts[i] - _ranges[p]);
   }
+  assert(ghost_local.size() == _ghosts.size());
+
+  // Find out who is a neighbour (needed for asymmetric graph, since some may
+  // only receive but not send back).
+  std::vector<std::int32_t> remote_count(mpi_size);
+  MPI_Alltoall(ghost_count.data(), 1, MPI_INT, remote_count.data(), 1, MPI_INT,
+               comm);
 
   std::vector<int> neighbours;
   for (std::size_t i = 0; i < ghost_count.size(); ++i)
   {
     const std::int32_t c = ghost_count[i];
+    const std::int32_t rc = remote_count[i];
     if (c > 0)
     {
       neighbours.push_back(i);
       _send_count.push_back(c);
+    }
+    else if (rc > 0)
+    {
+      neighbours.push_back(i);
+      _send_count.push_back(0);
     }
   }
 
@@ -120,21 +143,14 @@ L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
 
   // Send global indices to remote processes that own them
   int err = MPI_Neighbor_alltoallv(
-      _ghosts.data(), _send_count.data(), _send_offset.data(), MPI_INT,
-      _indexbuf.data(), _recv_count.data(), _recv_offset.data(), MPI_INT,
+      ghost_local.data(), _send_count.data(), _send_offset.data(), MPI_INT32_T,
+      _indexbuf.data(), _recv_count.data(), _recv_offset.data(), MPI_INT32_T,
       _neighbour_comm);
   if (err != MPI_SUCCESS)
     throw std::runtime_error("MPI failure");
 
-  // Should be in own range, subtract off _r0
-  for (index_type& i : _indexbuf)
-  {
-    assert(i >= r0 and i < r1);
-    i -= r0;
-  }
-
   // Add local_range onto _send_offset (ghosts will be at end of range)
-  for (index_type& s : _send_offset)
+  for (std::int32_t& s : _send_offset)
     s += local_size;
 
 #ifdef HAVE_CUDA
@@ -169,7 +185,7 @@ void L2GMap::update(thrust::device_ptr<T> &vec_data) const
 #endif
 
 template <typename T>
-void L2GMap::update_cpu(T *vec_data) const {
+void L2GMap::update(T *vec_data) const {
   // In serial, nothing to do
   if (_indexbuf.size() == 0)
     return;
@@ -188,15 +204,15 @@ void L2GMap::update_cpu(T *vec_data) const {
   if (err != MPI_SUCCESS)
     throw std::runtime_error("MPI failure");
 }
-template <typename T>
-void L2GMap::update(std::vector<T> &vec_data) const
-{
-  update_cpu(vec_data.data());
-}
-void L2GMap::update(Eigen::VectorXd &vec_data) const
-{
-  update_cpu(vec_data.data());
-}
+// template <typename T>
+// void L2GMap::update(std::vector<T> &vec_data) const
+// {
+//   update(vec_data.data());
+// }
+// void L2GMap::update(Eigen::VectorXd &vec_data) const
+// {
+//   update(vec_data.data());
+// }
 
 //-----------------------------------------------------------------------------
 template <typename T>
@@ -217,7 +233,7 @@ void L2GMap::reverse_update(T* vec_data) const
     vec_data[_indexbuf[i]] += databuf[i];
 }
 //-----------------------------------------------------------------------------
-index_type L2GMap::global_to_local(index_type i) const
+std::int32_t L2GMap::global_to_local(std::int64_t i) const
 {
   const std::int64_t r0 = _ranges[_mpi_rank];
   const std::int64_t r1 = _ranges[_mpi_rank + 1];
@@ -245,7 +261,8 @@ std::int64_t L2GMap::global_size() const { return _ranges.back(); }
 std::int64_t L2GMap::global_offset() const { return _ranges[_mpi_rank]; }
 //-----------------------------------------------------------------------------
 // Explicit instantiation
-template void spmv::L2GMap::update(std::vector<double>&) const;
+// template void spmv::L2GMap::update(std::vector<double>&) const;
+template void spmv::L2GMap::update(double *) const;
 #ifdef HAVE_CUDA
 template void spmv::L2GMap::update(thrust::device_ptr<double>&) const;
 #endif
