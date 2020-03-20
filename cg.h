@@ -30,9 +30,7 @@ std::tuple<Eigen::VectorXd, int> cg(MPI_Comm comm, const Matrix& A,
 
 #ifdef HAVE_CUDA
 std::tuple<Eigen::VectorXd, int>
-cg_cuda(MPI_Comm comm,
-        Eigen::Ref<Eigen::SparseMatrix<double, Eigen::RowMajor>> A,
-        const std::shared_ptr<const L2GMap> l2g,
+cg_cuda(MPI_Comm comm, const spmv::Matrix& A,
         const Eigen::Ref<const Eigen::VectorXd>& b, int max_its, double rtol);
 #endif
 
