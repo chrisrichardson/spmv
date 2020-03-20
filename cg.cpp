@@ -91,8 +91,7 @@ cusparseHandle_t handle = NULL;
 //-----------------------------------------------------------------------------
 std::tuple<Eigen::VectorXd, int>
 spmv::cg_cuda(MPI_Comm comm,
-              Eigen::Ref<Eigen::SparseMatrix<double, Eigen::RowMajor>> A,
-              const std::shared_ptr<const spmv::L2GMap> l2g,
+              const spmv::Matrix& A,
               const Eigen::Ref<const Eigen::VectorXd>& b, int kmax, double rtol)
 {
   // Initialise cuBLAS
@@ -108,19 +107,21 @@ spmv::cg_cuda(MPI_Comm comm,
 
   cusparse_CHECK(cusparseSetPointerMode(handle, CUSPARSE_POINTER_MODE_DEVICE));
 
-  int nnz = A.nonZeros();
-  int rows = A.rows();
-  int cols = A.cols();
+  const auto& matA = A.mat();
+  const std::shared_ptr<spmv::L2GMap> l2g = A.col_map();
+  int nnz = matA.nonZeros();
+  int rows = matA.rows();
+  int cols = matA.cols();
 
   cuda_CHECK(cudaMalloc(&value, nnz * sizeof(double)));
   cuda_CHECK(cudaMalloc(&inner, nnz * sizeof(int)));
   cuda_CHECK(cudaMalloc(&outer, (rows + 1) * sizeof(int)));
 
-  cuda_CHECK(cudaMemcpy(value, A.valuePtr(), nnz * sizeof(double),
+  cuda_CHECK(cudaMemcpy(value, matA.valuePtr(), nnz * sizeof(double),
                         cudaMemcpyHostToDevice));
-  cuda_CHECK(cudaMemcpy(inner, A.innerIndexPtr(), nnz * sizeof(int),
+  cuda_CHECK(cudaMemcpy(inner, matA.innerIndexPtr(), nnz * sizeof(int),
                         cudaMemcpyHostToDevice));
-  cuda_CHECK(cudaMemcpy(outer, A.outerIndexPtr(), (rows + 1) * sizeof(int),
+  cuda_CHECK(cudaMemcpy(outer, matA.outerIndexPtr(), (rows + 1) * sizeof(int),
                         cudaMemcpyHostToDevice));
 
   cusparse_CHECK(cusparseCreateCsr(&spmat, rows, cols, nnz, outer, inner, value,

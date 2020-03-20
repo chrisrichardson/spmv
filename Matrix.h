@@ -46,6 +46,10 @@ public:
     return _matA.rows();
   }
 
+  const Eigen::SparseMatrix<double, Eigen::RowMajor>& mat() const
+  {
+    return _matA;
+  }
 
 private:
 
