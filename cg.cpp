@@ -108,7 +108,7 @@ spmv::cg_cuda(MPI_Comm comm,
   cusparse_CHECK(cusparseSetPointerMode(handle, CUSPARSE_POINTER_MODE_DEVICE));
 
   const auto& matA = A.mat();
-  const std::shared_ptr<spmv::L2GMap> l2g = A.col_map();
+  std::shared_ptr<const spmv::L2GMap> l2g = A.col_map();
   int nnz = matA.nonZeros();
   int rows = matA.rows();
   int cols = matA.cols();
