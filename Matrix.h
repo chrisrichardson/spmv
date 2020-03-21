@@ -31,9 +31,18 @@ public:
 
   Eigen::VectorXd transpmult(const Eigen::VectorXd& b) const;
 
+  double norm() const;
+
+
   std::shared_ptr<const L2GMap> row_map() const { return _row_map; }
 
   std::shared_ptr<const L2GMap> col_map() const { return _col_map; }
+
+  Eigen::SparseMatrix<double, Eigen::RowMajor>& mat()
+  {
+    return _matA;
+  }
+
 
   int rows() const { return _matA.rows(); }
 

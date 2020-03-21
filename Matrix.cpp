@@ -59,6 +59,15 @@ Eigen::VectorXd Matrix::transpmult(const Eigen::VectorXd& b) const
 #endif
 }
 //-----------------------------------------------------------------------------
+double Matrix::norm() const
+{
+  double norm = _matA.squaredNorm();
+  double norm_sum;
+  MPI_Allreduce(&norm, &norm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  return std::sqrt(norm_sum);
+}
+
+//-----------------------------------------------------------------------------
 Matrix Matrix::create_matrix(
     MPI_Comm comm, const Eigen::SparseMatrix<double, Eigen::RowMajor> mat,
     std::int64_t nrows_local, std::int64_t ncols_local,
@@ -97,11 +106,12 @@ Matrix Matrix::create_matrix(
     const int p = it - row_ranges.begin() - 1;
     p_to_nnz[p].push_back(ghost_idx);
     p_to_val[p].push_back(0.0);
-    p_to_nnz[p].push_back(Aouter[i + 1] - Aouter[i]);
+    p_to_nnz[p].push_back(Aouter[nrows_local + i + 1]
+                          - Aouter[nrows_local + i]);
     p_to_val[p].push_back(0.0);
 
     const std::int64_t local_offset = col_ranges[mpi_rank];
-    for (int j = Aouter[i]; j < Aouter[i + 1]; ++j)
+    for (int j = Aouter[nrows_local + i]; j < Aouter[nrows_local + i + 1]; ++j)
     {
       std::int64_t global_index;
       if (Ainner[j] < ncols_local)
@@ -179,7 +189,6 @@ Matrix Matrix::create_matrix(
     q.second = c++;
 
   std::vector<Eigen::Triplet<double>> mat_data;
-
   for (int row = 0; row < nrows_local; ++row)
     for (int j = Aouter[row]; j < Aouter[row + 1]; ++j)
     {
