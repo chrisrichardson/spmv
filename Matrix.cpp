@@ -1,4 +1,5 @@
-
+// Copyright (C) 2020 Chris Richardson (chris@bpi.cam.ac.uk) and Jeffrey Salmond
+// SPDX-License-Identifier:    MIT
 
 #include "Matrix.h"
 #include "L2GMap.h"
@@ -8,8 +9,9 @@
 using namespace spmv;
 
 Matrix::Matrix(Eigen::SparseMatrix<double, Eigen::RowMajor> A,
-               std::shared_ptr<spmv::L2GMap> col_map)
-    : _matA(A), _col_map(col_map)
+               std::shared_ptr<spmv::L2GMap> col_map,
+               std::shared_ptr<spmv::L2GMap> row_map)
+    : _matA(A), _col_map(col_map), _row_map(row_map)
 {
   // _row_map = std::make_shared<L2GMap>(comm, _matA.rows(), {});
 
@@ -236,8 +238,11 @@ Matrix Matrix::create_matrix(
       nrows_local, ncols_local + new_col_ghosts.size());
   B.setFromTriplets(mat_data.begin(), mat_data.end());
 
-  std::shared_ptr<spmv::L2GMap> l2g
+  std::shared_ptr<spmv::L2GMap> col_map
       = std::make_shared<spmv::L2GMap>(comm, ncols_local, new_col_ghosts);
-  spmv::Matrix b(B, l2g);
+  std::shared_ptr<spmv::L2GMap> row_map = std::make_shared<spmv::L2GMap>(
+      comm, nrows_local, std::vector<std::int64_t>());
+
+  spmv::Matrix b(B, col_map, row_map);
   return b;
 }

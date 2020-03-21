@@ -1,15 +1,10 @@
-# use the official gcc image, based on debian
-# can use verions as well, like gcc:5.2
-# see https://hub.docker.com/_/gcc/
-image: ubuntu:20.04
+
+image: registry.asimov.cfms.org.uk/wp2/libspmv/base:latest
 
 build:
   stage: build
-  # instead of calling g++ directly you can also use some build toolkit like make
-  # install the necessary build tools when needed
-  before_script:
-    - apt update && apt -y install cmake libeigen3-dev libmpich-dev g++
   script:
-    - cmake . && make -j
-    - ./matvecmain
-    - mpirun -n 2 ./matvecmain
+    - cmake . -DCMAKE_PREFIX_PATH=/usr/local && make -j && make install
+    - export OMP_NUM_THREADS=1
+    - matvecmain
+    - mpirun -n 2 matvecmain
