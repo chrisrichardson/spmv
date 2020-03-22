@@ -73,5 +73,5 @@ spmv::cg(MPI_Comm comm, const spmv::Matrix& A,
       break;
   }
 
-  return {x, k};
+  return {std::move(x), k};
 }
