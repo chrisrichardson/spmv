@@ -85,7 +85,9 @@ spmv::Matrix create_A(MPI_Comm comm, int N)
   }
 
   std::vector<std::int64_t> ghosts(ghost_indices.begin(), ghost_indices.end());
-  auto l2g = std::make_shared<spmv::L2GMap>(comm, M, ghosts);
+  auto col_l2g = std::make_shared<spmv::L2GMap>(comm, M, ghosts);
+  auto row_l2g
+      = std::make_shared<spmv::L2GMap>(comm, M, std::vector<std::int64_t>());
 
   // Rebuild A using local indices
   Eigen::SparseMatrix<double, Eigen::RowMajor> Alocal(M, M + ghosts.size());
@@ -98,13 +100,13 @@ spmv::Matrix create_A(MPI_Comm comm, int N)
   {
     for (std::int32_t j = Aouter[row]; j < Aouter[row + 1]; ++j)
     {
-      std::int32_t col = l2g->global_to_local(Ainner[j]);
+      std::int32_t col = col_l2g->global_to_local(Ainner[j]);
       double val = Aval[j];
       vals.push_back(Eigen::Triplet<double>(row, col, val));
     }
   }
   Alocal.setFromTriplets(vals.begin(), vals.end());
 
-  return spmv::Matrix(Alocal, l2g);
+  return spmv::Matrix(Alocal, col_l2g, row_l2g);
 }
 //-----------------------------------------------------------------------------

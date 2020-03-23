@@ -32,11 +32,11 @@ void matvec_main()
   //  spmv::Matrix A = spmv::read_petsc_binary(MPI_COMM_WORLD, "A4.dat");
 
   std::shared_ptr<const spmv::L2GMap> l2g = A.col_map();
-  Eigen::VectorXd b(A.rows());
 
   // Get local and global sizes
-  std::int64_t M = A.rows();
+  std::int64_t M = A.row_map()->local_size(false);
   std::int64_t N = l2g->global_size();
+  Eigen::VectorXd b(M);
 
   auto timer_end = std::chrono::system_clock::now();
   //    timings["0.MatCreate"] += (timer_end - timer_start);
