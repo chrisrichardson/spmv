@@ -1,10 +1,6 @@
 // Copyright (C) 2018-2020 Chris Richardson (chris@bpi.cam.ac.uk)
 // SPDX-License-Identifier:    MIT
 
-#ifdef EIGEN_USE_MKL_ALL
-#include <mkl.h>
-#endif
-
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <chrono>
