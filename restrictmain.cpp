@@ -1,5 +1,5 @@
 // Copyright (C) 2018-2020 Chris Richardson (chris@bpi.cam.ac.uk)
-// SPDX-License-Identifier:    LGPL-3.0-or-later
+// SPDX-License-Identifier:    MIT
 
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
@@ -7,10 +7,6 @@
 #include <iostream>
 #include <memory>
 #include <mpi.h>
-
-#ifdef EIGEN_USE_MKL_ALL
-#include <mkl.h>
-#endif
 
 #include "CreateA.h"
 #include "L2GMap.h"
@@ -32,7 +28,7 @@ void restrict_main()
   auto q = spmv::read_petsc_binary_vector(MPI_COMM_WORLD, "b4.dat");
 
   // Get local and global sizes
-  std::int64_t M = R.rows();
+  std::int64_t M = R.mat().rows();
   auto l2g = R.col_map();
   std::int64_t N = l2g->global_size();
 

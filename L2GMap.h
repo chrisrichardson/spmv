@@ -1,5 +1,5 @@
 // Copyright (C) 2020 Chris Richardson (chris@bpi.cam.ac.uk)
-// SPDX-License-Identifier:    LGPL-3.0-or-later
+// SPDX-License-Identifier:    MIT
 
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
@@ -7,8 +7,6 @@
 #include <vector>
 
 #pragma once
-
-typedef Eigen::SparseMatrix<double>::StorageIndex index_type;
 
 namespace spmv
 {
@@ -18,9 +16,9 @@ class L2GMap
 public:
   /// L2GMap (Local to Global Map)
   /// @param comm MPI Comm
-  /// @param ranges Local range on each process
+  /// @param local_size Local size
   /// @param ghosts Ghost indices, owned by other processes
-  L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
+  L2GMap(MPI_Comm comm, std::int64_t local_size,
          const std::vector<std::int64_t>& ghosts);
 
   // Destructor destroys neighbour comm
@@ -44,7 +42,7 @@ public:
   std::int64_t global_offset() const;
 
   // Convert a global index to local
-  index_type global_to_local(index_type i) const;
+  std::int32_t global_to_local(std::int64_t i) const;
 
   // Ghost update - should be done each time *before* matvec
   template <typename T>
@@ -55,59 +53,47 @@ public:
   void reverse_update(T* vec_data) const;
 
   // Access to neighbour comm
-  const MPI_Comm& neighbour_comm() const
-  {
-    return _neighbour_comm;
-  }
+  const MPI_Comm& neighbour_comm() const { return _neighbour_comm; }
 
   // Access global indices of ghosts
-  const std::vector<std::int64_t>& ghosts() const
-  {
-    return _ghosts;
-  }
+  const std::vector<std::int64_t>& ghosts() const { return _ghosts; }
 
   // Access the "number of ghost entries per neighbour" list
-  const std::vector<index_type>& num_ghosts_per_neighbour() const
+  const std::vector<std::int32_t>& num_ghosts_per_neighbour() const
   {
     return _send_count;
   }
 
   // Access the "number of owned entries per neighbour" list
-  const std::vector<index_type>& num_owned_per_neighbour() const
+  const std::vector<std::int32_t>& num_owned_per_neighbour() const
   {
     return _recv_count;
   }
 
   // Access the indexbuf
-  const std::vector<index_type>& indexbuf() const
-  {
-    return _indexbuf;
-  }
+  const std::vector<std::int32_t>& indexbuf() const { return _indexbuf; }
 
   // Access the ranges
-  const std::vector<index_type>& ranges() const
-  {
-    return _ranges;
-  }
+  const std::vector<std::int64_t>& ranges() const { return _ranges; }
 
 private:
   // Ownership ranges for all processes on global comm
-  std::vector<index_type> _ranges;
+  std::vector<std::int64_t> _ranges;
 
   // Cached mpi rank on global comm
   // Local range is _ranges[_mpi_rank] -> _ranges[_mpi_rank + 1]
   std::int32_t _mpi_rank;
 
   // Forward and reverse maps for ghosts
-  std::map<index_type, index_type> _global_to_local;
+  std::map<std::int64_t, std::int32_t> _global_to_local;
   std::vector<std::int64_t> _ghosts;
 
   // Indices, counts and offsets for communication
-  std::vector<index_type> _indexbuf;
-  std::vector<index_type> _send_count;
-  std::vector<index_type> _recv_count;
-  std::vector<index_type> _send_offset;
-  std::vector<index_type> _recv_offset;
+  std::vector<std::int32_t> _indexbuf;
+  std::vector<std::int32_t> _send_count;
+  std::vector<std::int32_t> _recv_count;
+  std::vector<std::int32_t> _send_offset;
+  std::vector<std::int32_t> _recv_offset;
 
   MPI_Comm _neighbour_comm;
 };

@@ -1,5 +1,5 @@
 // Copyright (C) 2020 Chris Richardson (chris@bpi.cam.ac.uk) and Jeffrey Salmond
-// SPDX-License-Identifier:    LGPL-3.0-or-later
+// SPDX-License-Identifier:    MIT
 
 #include "cg.h"
 #include "L2GMap.h"
@@ -13,15 +13,23 @@ spmv::cg(MPI_Comm comm, const spmv::Matrix& A,
   int mpi_rank;
   MPI_Comm_rank(comm, &mpi_rank);
 
-  std::shared_ptr<const spmv::L2GMap> l2g = A.col_map();
+  std::shared_ptr<const spmv::L2GMap> col_l2g = A.col_map();
+  std::shared_ptr<const spmv::L2GMap> row_l2g = A.row_map();
 
-  int M = A.rows();
+  // Check the row map is unghosted
+  if (row_l2g->local_size(true) != row_l2g->local_size(false))
+    throw std::runtime_error("spmv::cg - Error: A.row_map() has ghost entries");
+
+  int M = row_l2g->local_size(false);
+
+  if (b.rows() != M)
+    throw std::runtime_error("spmv::cg - Error: b.rows() != A.rows()");
 
   // Residual vector
   Eigen::VectorXd r(M);
   Eigen::VectorXd y(M);
-  Eigen::VectorXd x(l2g->local_size(true));
-  Eigen::VectorXd psp(l2g->local_size(true));
+  Eigen::VectorXd x(col_l2g->local_size(true));
+  Eigen::VectorXd psp(col_l2g->local_size(true));
   Eigen::Map<Eigen::VectorXd> p(psp.data(), M);
 
   // Assign to dense part of sparse vector
@@ -42,7 +50,7 @@ spmv::cg(MPI_Comm comm, const spmv::Matrix& A,
     ++k;
 
     // y = A.p
-    l2g->update(psp.data());
+    col_l2g->update(psp.data());
 
     y = A * psp;
 
@@ -70,5 +78,5 @@ spmv::cg(MPI_Comm comm, const spmv::Matrix& A,
       break;
   }
 
-  return {x, k};
+  return {std::move(x), k};
 }

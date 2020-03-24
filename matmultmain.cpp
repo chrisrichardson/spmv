@@ -34,30 +34,31 @@ void restrict_main()
 
   auto A = spmv::read_petsc_binary(MPI_COMM_WORLD, "A4.dat");
   auto l2g_A = A.col_map();
-  std::cout << "A = " << A.rows() << "x" << A.col_map()->local_size(true)
+  std::cout << "A = " << A.mat().rows() << "x" << A.col_map()->local_size(true)
             << "\n";
 
   // Remap row map to column map...
   spmv::Matrix B = remap_mat(MPI_COMM_WORLD, l2g_A, R);
   auto l2g_B = B.col_map();
 
-  std::cout << "B=" << B.rows() << "x" << B.col_map()->local_size(true) << "\n";
+  std::cout << "B=" << B.mat().rows() << "x" << B.col_map()->local_size(true)
+            << "\n";
 
-  spmv::Matrix C(A.mat() * B.mat(), B.col_map());
+  spmv::Matrix C(A.mat() * B.mat(), B.col_map(), A.row_map());
 
-  std::cout << "C = " << C.rows() << " x" << C.col_map()->local_size(true)
+  std::cout << "C = " << C.mat().rows() << " x" << C.col_map()->local_size(true)
             << "\n";
 
   std::cout << "R.mat = " << R.mat().rows() << "x" << R.mat().cols() << "\n";
 
   auto Q = spmv::Matrix(
       R.mat().leftCols(R.col_map()->local_size(false)).transpose() * C.mat(),
-      C.col_map());
+      C.col_map(), R.row_map());
 
-  std::cout << "Q.mat = " << Q.rows() << "x" << Q.col_map()->local_size(true)
-            << "\n";
+  std::cout << "Q.mat = " << Q.mat().rows() << "x"
+            << Q.col_map()->local_size(true) << "\n";
 
-  int qrows = Q.rows();
+  int qrows = Q.mat().rows();
   int qrows_sum;
 
   MPI_Allreduce(&qrows, &qrows_sum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);

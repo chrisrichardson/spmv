@@ -1,5 +1,5 @@
 // Copyright (C) 2020 Chris Richardson (chris@bpi.cam.ac.uk)
-// SPDX-License-Identifier:    LGPL-3.0-or-later
+// SPDX-License-Identifier:    MIT
 
 #include "L2GMap.h"
 #include <algorithm>
@@ -42,27 +42,35 @@ MPI_Datatype mpi_type<std::complex<double>>()
 }
 } // namespace
 //-----------------------------------------------------------------------------
-L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
+L2GMap::L2GMap(MPI_Comm comm, std::int64_t local_size,
                const std::vector<std::int64_t>& ghosts)
-    : _ranges(ranges), _ghosts(ghosts)
+    : _ghosts(ghosts)
 {
   int mpi_size;
   MPI_Comm_size(comm, &mpi_size);
   MPI_Comm_rank(comm, &_mpi_rank);
 
+  _ranges.resize(mpi_size + 1);
+  _ranges[0] = 0;
+  MPI_Allgather(&local_size, 1, MPI_INT64_T, _ranges.data() + 1, 1, MPI_INT64_T,
+                comm);
+  for (int i = 0; i < mpi_size; ++i)
+    _ranges[i + 1] += _ranges[i];
+
   const std::int64_t r0 = _ranges[_mpi_rank];
   const std::int64_t r1 = _ranges[_mpi_rank + 1];
-  const index_type local_size = r1 - r0;
 
   // Make sure ghosts are in order
-  std::sort(_ghosts.begin(), _ghosts.end());
+  if (!std::is_sorted(_ghosts.begin(), _ghosts.end()))
+    throw std::runtime_error("Ghosts must be sorted");
 
   // Get count on each process and local index
   std::vector<std::int32_t> send_ghosts(_ghosts.size());
   std::vector<std::int32_t> ghost_count(mpi_size);
+  std::vector<std::int32_t> ghost_local;
   for (std::size_t i = 0; i < _ghosts.size(); ++i)
   {
-    const index_type idx = _ghosts[i];
+    const std::int64_t idx = _ghosts[i];
 
     if (idx >= r0 and idx < r1)
       throw std::runtime_error("Ghost index in local range");
@@ -73,7 +81,10 @@ L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
     const int p = it - _ranges.begin() - 1;
     send_ghosts[i] = _ghosts[i] - _ranges[p];
     ++ghost_count[p];
+    assert(_ghosts[i] >= _ranges[p] and _ghosts[i] < _ranges[p + 1]);
+    ghost_local.push_back(_ghosts[i] - _ranges[p]);
   }
+  assert(ghost_local.size() == _ghosts.size());
 
   // Find out who is a neighbour (needed for asymmetric graph, since some may
   // only receive but not send back).
@@ -123,14 +134,14 @@ L2GMap::L2GMap(MPI_Comm comm, const std::vector<index_type>& ranges,
 
   // Send global indices to remote processes that own them
   int err = MPI_Neighbor_alltoallv(
-      send_ghosts.data(), _send_count.data(), _send_offset.data(), MPI_INT,
-      _indexbuf.data(), _recv_count.data(), _recv_offset.data(), MPI_INT,
+      ghost_local.data(), _send_count.data(), _send_offset.data(), MPI_INT32_T,
+      _indexbuf.data(), _recv_count.data(), _recv_offset.data(), MPI_INT32_T,
       _neighbour_comm);
   if (err != MPI_SUCCESS)
     throw std::runtime_error("MPI failure");
 
   // Add local_range onto _send_offset (ghosts will be at end of range)
-  for (index_type& s : _send_offset)
+  for (std::int32_t& s : _send_offset)
     s += local_size;
 }
 //-----------------------------------------------------------------------------
@@ -176,7 +187,7 @@ void L2GMap::reverse_update(T* vec_data) const
     vec_data[_indexbuf[i]] += databuf[i];
 }
 //-----------------------------------------------------------------------------
-index_type L2GMap::global_to_local(index_type i) const
+std::int32_t L2GMap::global_to_local(std::int64_t i) const
 {
   const std::int64_t r0 = _ranges[_mpi_rank];
   const std::int64_t r1 = _ranges[_mpi_rank + 1];

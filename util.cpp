@@ -59,7 +59,7 @@ spmv::Matrix spmv::remap_mat(MPI_Comm comm,
   // Takes a SparseMatrix A, and fetches the ghost rows in row_map and
   // appends them to A, creating a new SparseMatrix B
 
-  Eigen::Ref<const Eigen::SparseMatrix<double, Eigen::RowMajor>> A = mat.mat();
+  const Eigen::SparseMatrix<double, Eigen::RowMajor>& A = mat.mat();
   std::shared_ptr<const spmv::L2GMap> col_map = mat.col_map();
 
   if (A.rows() != row_map->local_size(false))
@@ -188,8 +188,11 @@ spmv::Matrix spmv::remap_mat(MPI_Comm comm,
         std::find(new_col_ghosts.begin(), new_col_ghosts.end(), old_ghost)
         - new_col_ghosts.begin());
 
-  auto new_col_map
-      = std::make_shared<spmv::L2GMap>(comm, col_map->ranges(), new_col_ghosts);
+  auto new_col_map = std::make_shared<spmv::L2GMap>(
+      comm, col_map->local_size(false), new_col_ghosts);
+
+  auto new_row_map = std::make_shared<spmv::L2GMap>(
+      comm, row_map->local_size(false), std::vector<std::int64_t>());
 
   // Prepare new data for B
   Eigen::SparseMatrix<double, Eigen::RowMajor> B(row_map->local_size(true),
@@ -239,5 +242,5 @@ spmv::Matrix spmv::remap_mat(MPI_Comm comm,
 
   std::cout << s.str();
 
-  return spmv::Matrix(B, new_col_map);
+  return spmv::Matrix(B, new_col_map, new_row_map);
 }

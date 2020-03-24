@@ -4,10 +4,7 @@ cmake_minimum_required(VERSION 3.5)
 # Choose Release or Debug
 set(CMAKE_BUILD_TYPE Release)
 
-# Use C++11
 set(CMAKE_CXX_STANDARD 17)
-
-# Require C++11
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(PROJECT_NAME spmv)
@@ -15,6 +12,9 @@ project(${PROJECT_NAME})
 
 # Set CMake behavior
 cmake_policy(SET CMP0004 NEW)
+
+set(CMAKE_SKIP_RPATH FALSE)
+set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 
 find_package(MPI REQUIRED)
 
@@ -25,7 +25,7 @@ find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR} ${MPI_INCLUDE_PATH})
 
 # Not sure why need to set -O3 and -DNDEBUG as should be set by Release build type
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=all -g -DNDEBUG -O3")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=all -g -O3 -DNDEBUG -DEIGEN_MAX_ALIGN_BYTES=32")
 
 # Executables
 add_executable(cgmain cgmain.cpp)
@@ -40,11 +40,19 @@ add_executable(jacobimain jacobimain.cpp)
 target_link_libraries(jacobimain ${PROJECT_NAME})
 
 add_library(${PROJECT_NAME} SHARED read_petsc.cpp L2GMap.cpp cg.cpp Matrix.cpp util.cpp jacobi.cpp)
+set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "spmv.h")
 
 if(BLAS_FOUND)
     target_compile_definitions(${PROJECT_NAME} PUBLIC EIGEN_USE_MKL_ALL)
     target_link_libraries(${PROJECT_NAME} ${BLAS_LIBRARIES})
+    include_directories("/usr/include/mkl")
 endif()
 
 # Target libraries
 target_link_libraries(${PROJECT_NAME} ${MPI_LIBRARIES})
+
+install(TARGETS ${PROJECT_NAME} cgmain matvecmain restrictmain
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    PUBLIC_HEADER DESTINATION include
+)

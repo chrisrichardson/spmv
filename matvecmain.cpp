@@ -1,5 +1,5 @@
 // Copyright (C) 2018-2020 Chris Richardson (chris@bpi.cam.ac.uk)
-// SPDX-License-Identifier:    LGPL-3.0-or-later
+// SPDX-License-Identifier:    MIT
 
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
@@ -7,10 +7,6 @@
 #include <iostream>
 #include <memory>
 #include <mpi.h>
-
-#ifdef EIGEN_USE_MKL_ALL
-#include <mkl.h>
-#endif
 
 #include "CreateA.h"
 #include "L2GMap.h"
@@ -30,17 +26,17 @@ void matvec_main()
   auto timer_start = std::chrono::system_clock::now();
 
   // Either create a simple 1D stencil
-  //  spmv::Matrix A = create_A(MPI_COMM_WORLD, 500000);
+  spmv::Matrix A = create_A(MPI_COMM_WORLD, 500000);
 
   // Or read file created with "-ksp_view_mat binary" option
-  spmv::Matrix A = spmv::read_petsc_binary(MPI_COMM_WORLD, "A4.dat");
+  //  spmv::Matrix A = spmv::read_petsc_binary(MPI_COMM_WORLD, "A4.dat");
 
   std::shared_ptr<const spmv::L2GMap> l2g = A.col_map();
-  Eigen::VectorXd b(A.rows());
 
   // Get local and global sizes
-  std::int64_t M = A.rows();
+  std::int64_t M = A.row_map()->local_size(false);
   std::int64_t N = l2g->global_size();
+  Eigen::VectorXd b(M);
 
   auto timer_end = std::chrono::system_clock::now();
   //    timings["0.MatCreate"] += (timer_end - timer_start);
