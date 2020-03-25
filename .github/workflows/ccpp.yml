@@ -9,6 +9,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - name: Get CPU info
+      run: cat /proc/cpuinfo
     - name: Install Eigen3
       run: sudo apt install -y libmpich-dev libeigen3-dev
     - name: cmake
@@ -16,4 +18,4 @@ jobs:
     - name: make
       run: make
     - name: Run with 2 processes
-      run: ./matvecmain && OMP_NUM_THREADS=1 mpirun -n 4 ./matvecmain
+      run: ./matvecmain && mpirun -n 2 ./matvecmain
