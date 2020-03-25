@@ -16,4 +16,4 @@ jobs:
     - name: make
       run: make
     - name: Run with 2 processes
-      run: mpirun -n 2 ./matvecmain
+      run: ./matvecmain && mpirun -n 4 ./matvecmain
