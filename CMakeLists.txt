@@ -8,7 +8,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(PROJECT_NAME spmv)
-project(${PROJECT_NAME})
+set(PACKAGE_VERSION 1.0)
+project(${PROJECT_NAME} VERSION ${PACKAGE_VERSION} LANGUAGES CXX)
 
 # Set CMake behavior
 cmake_policy(SET CMP0004 NEW)
@@ -37,6 +38,7 @@ target_link_libraries(restrictmain ${PROJECT_NAME})
 
 add_library(${PROJECT_NAME} SHARED read_petsc.cpp L2GMap.cpp cg.cpp Matrix.cpp)
 set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "spmv.h")
+set_target_properties(${PROJECT_NAME} PROPERTIES PRIVATE_HEADER "L2GMap.h;Matrix.h;read_petsc.h;cg.h")
 
 if(BLAS_FOUND)
     target_compile_definitions(${PROJECT_NAME} PUBLIC EIGEN_USE_MKL_ALL)
@@ -48,7 +50,22 @@ endif()
 target_link_libraries(${PROJECT_NAME} ${MPI_LIBRARIES})
 
 install(TARGETS ${PROJECT_NAME} cgmain matvecmain restrictmain
+    EXPORT libspmv
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib
     PUBLIC_HEADER DESTINATION include
+    PRIVATE_HEADER DESTINATION include
 )
+
+# First attempt at installing a config
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+  libspmvConfig.cmake
+    VERSION ${PACKAGE_VERSION}
+    COMPATIBILITY AnyNewerVersion
+    )
+
+install(EXPORT libspmv
+  FILE libspmvConfig.cmake
+  NAMESPACE spmv::
+  DESTINATION lib/cmake/spmv)
