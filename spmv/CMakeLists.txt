@@ -11,7 +11,6 @@ set_target_properties(${PROJECT_NAME} PROPERTIES PRIVATE_HEADER "L2GMap.h;Matrix
 if(BLAS_FOUND)
     target_compile_definitions(${PROJECT_NAME} PUBLIC EIGEN_USE_MKL_ALL)
     target_link_libraries(${PROJECT_NAME} ${BLAS_LIBRARIES})
-    include_directories("/usr/include/mkl")
 endif()
 
 

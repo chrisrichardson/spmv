@@ -21,6 +21,9 @@ find_package(MPI REQUIRED)
 
 set(BLA_VENDOR Intel10_64lp)
 find_package(BLAS)
+if(BLAS_FOUND)
+    include_directories("/usr/include/mkl")
+endif()
 
 find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR} ${MPI_INCLUDE_PATH})
