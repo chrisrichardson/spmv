@@ -2,6 +2,7 @@
 set(CMAKE_BUILD_WITH_INSTALL_RPATH ON)
 add_library(${PROJECT_NAME} SHARED L2GMap.cpp Matrix.cpp read_petsc.cpp cg.cpp)
 target_include_directories (${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories (${PROJECT_NAME} INTERFACE $<INSTALL_INTERFACE:include>)
 # Target libraries
 target_link_libraries(${PROJECT_NAME} ${MPI_LIBRARIES})
 
@@ -24,12 +25,12 @@ install(TARGETS ${PROJECT_NAME}
 # First attempt at installing a config
 include(CMakePackageConfigHelpers)
 write_basic_package_version_file( 
-  libspmvConfig.cmake
+  spmvConfig.cmake
     VERSION ${PACKAGE_VERSION}
     COMPATIBILITY AnyNewerVersion
     )
 
 install(EXPORT libspmv
-  FILE libspmvConfig.cmake
+  FILE spmvConfig.cmake
   NAMESPACE spmv::
-  DESTINATION lib/cmake/spmv)
+  DESTINATION share/spmv/cmake)
