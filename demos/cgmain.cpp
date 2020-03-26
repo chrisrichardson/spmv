@@ -8,11 +8,10 @@
 #include <memory>
 #include <mpi.h>
 
-#include "CreateA.h"
-#include "L2GMap.h"
-#include "Matrix.h"
-#include "cg.h"
-#include "read_petsc.h"
+#include <spmv/L2GMap.h>
+#include <spmv/Matrix.h>
+#include <spmv/cg.h>
+#include <spmv/read_petsc.h>
 
 int cg_main(int argc, char** argv)
 {

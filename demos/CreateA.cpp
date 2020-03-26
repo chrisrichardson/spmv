@@ -2,10 +2,10 @@
 // SPDX-License-Identifier:    MIT
 
 #include "CreateA.h"
-#include "L2GMap.h"
 #include <Eigen/Sparse>
 #include <memory>
 #include <set>
+#include <spmv/L2GMap.h>
 
 //-----------------------------------------------------------------------------
 // Divide size into N ~equal chunks

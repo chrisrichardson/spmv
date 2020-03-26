@@ -1,4 +1,5 @@
 
+set(CMAKE_BUILD_WITH_INSTALL_RPATH ON)
 add_library(${PROJECT_NAME} SHARED L2GMap.cpp Matrix.cpp read_petsc.cpp cg.cpp)
 target_include_directories (${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 # Target libraries

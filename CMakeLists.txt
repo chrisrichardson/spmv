@@ -28,12 +28,6 @@ include_directories(${EIGEN3_INCLUDE_DIR} ${MPI_INCLUDE_PATH})
 # Not sure why need to set -O3 and -DNDEBUG as should be set by Release build type
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=all -g -O3 -DNDEBUG -DEIGEN_MAX_ALIGN_BYTES=32")
 
-add_subdirectory(src)
-
-# Executables
-# add_executable(cgmain cgmain.cpp)
-# target_link_libraries(cgmain ${PROJECT_NAME})
-# add_executable(matvecmain matvecmain.cpp CreateA.cpp)
-# target_link_libraries(matvecmain ${PROJECT_NAME})
-# add_executable(restrictmain restrictmain.cpp)
-# target_link_libraries(restrictmain ${PROJECT_NAME})
+add_subdirectory(spmv)
+include_directories (${CMAKE_CURRENT_SOURCE_DIR})
+add_subdirectory(demos)
