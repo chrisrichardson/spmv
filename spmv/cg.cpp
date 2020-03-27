@@ -44,7 +44,7 @@ spmv::cg(MPI_Comm comm, const spmv::Matrix& A,
   MPI_Allreduce(&rnorm, &rnorm0, 1, MPI_DOUBLE, MPI_SUM, comm);
 
   // Iterations of CG
-
+  const double rtol2 = rtol * rtol;
   double rnorm_old = rnorm0;
   int k = 0;
   while (k < kmax)
@@ -75,7 +75,7 @@ spmv::cg(MPI_Comm comm, const spmv::Matrix& A,
     // Update p
     p.head(M) = p.head(M) * beta + r;
 
-    if (rnorm_new / rnorm0 < rtol)
+    if (rnorm_new / rnorm0 < rtol2)
       break;
   }
 
