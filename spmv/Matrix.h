@@ -48,6 +48,10 @@ public:
 
   /// Access the underlying local sparse matrix
   Eigen::SparseMatrix<double, Eigen::RowMajor>& mat() { return _matA; }
+  const Eigen::SparseMatrix<double, Eigen::RowMajor>& mat() const
+  {
+    return _matA;
+  }
 
   /// Create a matrix from an Eigen::SparseMatrix and row and column mappings
   /// FIXME: should this function really be in the constructor?

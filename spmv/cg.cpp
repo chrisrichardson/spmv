@@ -4,6 +4,8 @@
 #include "cg.h"
 #include "L2GMap.h"
 #include "Matrix.h"
+#include <iomanip>
+#include <iostream>
 
 //-----------------------------------------------------------------------------
 std::tuple<Eigen::VectorXd, int>
@@ -29,13 +31,13 @@ spmv::cg(MPI_Comm comm, const spmv::Matrix& A,
   Eigen::VectorXd r(M);
   Eigen::VectorXd y(M);
   Eigen::VectorXd x(col_l2g->local_size(true));
-  Eigen::VectorXd psp(col_l2g->local_size(true));
-  Eigen::Map<Eigen::VectorXd> p(psp.data(), M);
+  Eigen::VectorXd p(col_l2g->local_size(true));
+  p.setZero();
 
   // Assign to dense part of sparse vector
   x.setZero();
   r = b; // b - A * x0
-  p = r;
+  p.head(M) = r;
 
   double rnorm = r.squaredNorm();
   double rnorm0;
@@ -50,18 +52,17 @@ spmv::cg(MPI_Comm comm, const spmv::Matrix& A,
     ++k;
 
     // y = A.p
-    col_l2g->update(psp.data());
-
-    y = A * psp;
+    col_l2g->update(p.data());
+    y = A * p;
 
     // Calculate alpha = r.r/p.y
-    double pdoty = p.dot(y);
+    double pdoty = p.head(M).dot(y);
     double pdoty_sum;
     MPI_Allreduce(&pdoty, &pdoty_sum, 1, MPI_DOUBLE, MPI_SUM, comm);
     double alpha = rnorm_old / pdoty_sum;
 
     // Update x and r
-    x.head(M) += alpha * p;
+    x.head(M) += alpha * p.head(M);
     r -= alpha * y;
 
     // Update rnorm
@@ -72,7 +73,7 @@ spmv::cg(MPI_Comm comm, const spmv::Matrix& A,
     rnorm_old = rnorm_new;
 
     // Update p
-    p = p * beta + r;
+    p.head(M) = p.head(M) * beta + r;
 
     if (rnorm_new / rnorm0 < rtol)
       break;

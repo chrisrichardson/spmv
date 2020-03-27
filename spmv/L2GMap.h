@@ -52,6 +52,8 @@ public:
   template <typename T>
   void reverse_update(T* vec_data) const;
 
+  const std::vector<std::int64_t>& ghosts() const { return _ghosts; }
+
 private:
   // Ownership ranges for all processes on global comm
   std::vector<std::int64_t> _ranges;
