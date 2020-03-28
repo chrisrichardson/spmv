@@ -4,7 +4,8 @@ image: registry.asimov.cfms.org.uk/wp2/libspmv/base:latest
 build:
   stage: build
   script:
-    - cmake . -DCMAKE_PREFIX_PATH=/usr/local && make -j && make install
+    - mkdir build && cd build
+    - cmake .. -DCMAKE_PREFIX_PATH=/usr/local && make -j && make install
     - export OMP_NUM_THREADS=1
-    - matvecmain
-    - mpirun -n 2 matvecmain
+    - ./demos/matvecmain
+    - mpirun -n 2 ./demos/matvecmain

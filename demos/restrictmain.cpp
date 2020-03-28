@@ -9,8 +9,8 @@
 #include <mpi.h>
 
 #include "CreateA.h"
-#include "L2GMap.h"
-#include "read_petsc.h"
+#include <spmv/L2GMap.h>
+#include <spmv/read_petsc.h>
 
 void restrict_main()
 {

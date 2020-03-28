@@ -159,7 +159,7 @@ Matrix Matrix::create_matrix(
 
   // Create new map from global column index to local
   std::map<std::int64_t, int> col_ghost_map;
-  for (std::int64_t& q : col_ghosts)
+  for (std::int64_t q : col_ghosts)
     col_ghost_map.insert({q, -1});
 
   // Add any new ghost columns
@@ -190,14 +190,16 @@ Matrix Matrix::create_matrix(
     for (int j = Aouter[row]; j < Aouter[row + 1]; ++j)
     {
       int col = Ainner[j];
-      if (col > nrows_local)
+      if (col >= ncols_local)
       {
         // Get remapped ghost column
-        std::int64_t global_col = col_ghosts[col - nrows_local];
+        std::int64_t global_col = col_ghosts[col - ncols_local];
         auto it = col_ghost_map.find(global_col);
         assert(it != col_ghost_map.end());
         col = it->second;
+        assert(col >= ncols_local);
       }
+
       assert(row >= 0 and row < nrows_local);
       assert(col >= 0 and col < (int)(ncols_local + col_ghost_map.size()));
       mat_data.push_back(Eigen::Triplet<double>(row, col, Aval[j]));

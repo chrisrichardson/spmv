@@ -47,6 +47,7 @@ public:
   std::shared_ptr<const L2GMap> col_map() const { return _col_map; }
 
   /// Access the underlying local sparse matrix
+  Eigen::SparseMatrix<double, Eigen::RowMajor>& mat() { return _matA; }
   const Eigen::SparseMatrix<double, Eigen::RowMajor>& mat() const
   {
     return _matA;
