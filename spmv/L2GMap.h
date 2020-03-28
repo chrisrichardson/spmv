@@ -23,6 +23,7 @@ public:
   /// @param comm MPI Comm
   /// @param local_size Local size
   /// @param ghosts Ghost indices, owned by other processes
+  /// Ghosts must be sorted in ascending order.
   L2GMap(MPI_Comm comm, std::int64_t local_size,
          const std::vector<std::int64_t>& ghosts);
 

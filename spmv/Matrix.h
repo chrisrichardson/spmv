@@ -4,6 +4,7 @@
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <memory>
+#include <vector>
 
 #ifdef EIGEN_USE_MKL_ALL
 #include <mkl.h>
@@ -24,8 +25,8 @@ class Matrix
 {
   /// Matrix with row and column maps.
 public:
-  /// This constructor just copies in the data. To build a Matrix with no ghost
-  /// rows, use Matrix::create_matrix instead.
+  /// This constructor just copies in the data. To build a Matrix from more
+  /// general data, use `Matrix::create_matrix` instead.
   Matrix(Eigen::SparseMatrix<T, Eigen::RowMajor> A,
          std::shared_ptr<spmv::L2GMap> col_map,
          std::shared_ptr<spmv::L2GMap> row_map);
@@ -51,8 +52,11 @@ public:
   Eigen::SparseMatrix<T, Eigen::RowMajor>& mat() { return _matA; }
   const Eigen::SparseMatrix<T, Eigen::RowMajor>& mat() const { return _matA; }
 
-  /// Create a matrix from an Eigen::SparseMatrix and row and column mappings
-  /// FIXME: should this function really be in the constructor?
+  /// Create an `spmv:Matrix` from an Eigen::SparseMatrix and row and column
+  /// mappings, such that the resulting matrix has no row ghosts, but only
+  /// column ghosts. This is achieved by sending ghost rows to their owners,
+  /// where they are summed into existing rows. The column ghost mapping will
+  /// also change in this process.
   static Matrix<T>
   create_matrix(MPI_Comm comm,
                 const Eigen::SparseMatrix<T, Eigen::RowMajor> mat,
