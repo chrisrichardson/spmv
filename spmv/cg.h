@@ -13,7 +13,7 @@ namespace spmv
 template <typename T>
 class Matrix;
 
-/// Solve A.x=b iteratively with Conjugate Gradient
+/// @brief Solve **A.x=b** iteratively with Conjugate Gradient
 ///
 /// Input
 /// @param comm MPI communicator
@@ -22,7 +22,7 @@ class Matrix;
 /// @param max_its Maximum iteration count
 /// @param rtol Relative tolerance
 ///
-/// @return tuple of result and number of iterations
+/// @return tuple of result **x** and number of iterations
 ///
 std::tuple<Eigen::VectorXd, int> cg(MPI_Comm comm, const Matrix<double>& A,
                                     const Eigen::Ref<const Eigen::VectorXd>& b,

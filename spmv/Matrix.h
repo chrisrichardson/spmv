@@ -52,7 +52,7 @@ public:
   Eigen::SparseMatrix<T, Eigen::RowMajor>& mat() { return _matA; }
   const Eigen::SparseMatrix<T, Eigen::RowMajor>& mat() const { return _matA; }
 
-  /// Create an `spmv:Matrix` from an Eigen::SparseMatrix and row and column
+  /// Create an `spmv::Matrix` from an Eigen::SparseMatrix and row and column
   /// mappings, such that the resulting matrix has no row ghosts, but only
   /// column ghosts. This is achieved by sending ghost rows to their owners,
   /// where they are summed into existing rows. The column ghost mapping will
