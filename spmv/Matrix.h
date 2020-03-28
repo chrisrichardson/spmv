@@ -28,12 +28,8 @@ public:
          std::shared_ptr<spmv::L2GMap> col_map,
          std::shared_ptr<spmv::L2GMap> row_map);
 
-  ~Matrix()
-  {
-#ifdef EIGEN_USE_MKL_ALL
-    mkl_sparse_destroy(A_mkl);
-#endif
-  }
+  /// Destructor (destroys MKL structs, if using MKL)
+  ~Matrix();
 
   /// MatVec operator for A x
   Eigen::Matrix<T, Eigen::Dynamic, 1>
