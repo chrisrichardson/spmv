@@ -9,7 +9,7 @@
 
 //-----------------------------------------------------------------------------
 std::tuple<Eigen::VectorXd, int>
-spmv::cg(MPI_Comm comm, const spmv::Matrix& A,
+spmv::cg(MPI_Comm comm, const spmv::Matrix<double>& A,
          const Eigen::Ref<const Eigen::VectorXd>& b, int kmax, double rtol)
 {
   int mpi_rank;

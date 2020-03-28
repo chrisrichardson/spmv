@@ -29,7 +29,8 @@ std::vector<std::int64_t> owner_ranges(int size, std::int64_t N)
   return ranges;
 }
 //-----------------------------------------------------------------------------
-spmv::Matrix spmv::read_petsc_binary(MPI_Comm comm, std::string filename)
+spmv::Matrix<double> spmv::read_petsc_binary(MPI_Comm comm,
+                                             std::string filename)
 {
   Eigen::SparseMatrix<double, Eigen::RowMajor> A;
 
@@ -184,7 +185,7 @@ spmv::Matrix spmv::read_petsc_binary(MPI_Comm comm, std::string filename)
   auto row_map = std::make_shared<spmv::L2GMap>(comm, nrows_local,
                                                 std::vector<std::int64_t>());
 
-  return spmv::Matrix(A, col_map, row_map);
+  return spmv::Matrix<double>(A, col_map, row_map);
 }
 //-----------------------------------------------------------------------------
 Eigen::VectorXd spmv::read_petsc_binary_vector(MPI_Comm comm,
