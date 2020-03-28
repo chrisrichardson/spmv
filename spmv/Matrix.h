@@ -17,13 +17,14 @@ namespace spmv
 {
 class L2GMap;
 
+template <typename T>
 class Matrix
 {
 public:
   /// Matrix with row and column maps.
   /// This constructor just copies in the data. To build a Matrix with no ghost
   /// rows, use Matrix::create_matrix instead.
-  Matrix(Eigen::SparseMatrix<double, Eigen::RowMajor> A,
+  Matrix(Eigen::SparseMatrix<T, Eigen::RowMajor> A,
          std::shared_ptr<spmv::L2GMap> col_map,
          std::shared_ptr<spmv::L2GMap> row_map);
 
@@ -35,10 +36,12 @@ public:
   }
 
   /// MatVec operator for A x
-  Eigen::VectorXd operator*(const Eigen::VectorXd& b) const;
+  Eigen::Matrix<T, Eigen::Dynamic, 1>
+  operator*(const Eigen::Matrix<T, Eigen::Dynamic, 1>& b) const;
 
   /// MatVec operator for A^T x
-  Eigen::VectorXd transpmult(const Eigen::VectorXd& b) const;
+  Eigen::Matrix<T, Eigen::Dynamic, 1>
+  transpmult(const Eigen::Matrix<T, Eigen::Dynamic, 1>& b) const;
 
   /// Row mapping (local-to-global). Usually, there will not be ghost rows.
   std::shared_ptr<const L2GMap> row_map() const { return _row_map; }
@@ -47,17 +50,14 @@ public:
   std::shared_ptr<const L2GMap> col_map() const { return _col_map; }
 
   /// Access the underlying local sparse matrix
-  Eigen::SparseMatrix<double, Eigen::RowMajor>& mat() { return _matA; }
-  const Eigen::SparseMatrix<double, Eigen::RowMajor>& mat() const
-  {
-    return _matA;
-  }
+  Eigen::SparseMatrix<T, Eigen::RowMajor>& mat() { return _matA; }
+  const Eigen::SparseMatrix<T, Eigen::RowMajor>& mat() const { return _matA; }
 
   /// Create a matrix from an Eigen::SparseMatrix and row and column mappings
   /// FIXME: should this function really be in the constructor?
-  static Matrix
+  static Matrix<T>
   create_matrix(MPI_Comm comm,
-                const Eigen::SparseMatrix<double, Eigen::RowMajor> mat,
+                const Eigen::SparseMatrix<T, Eigen::RowMajor> mat,
                 std::int64_t nrows_local, std::int64_t ncols_local,
                 std::vector<std::int64_t> row_ghosts,
                 std::vector<std::int64_t> col_ghosts);
@@ -70,7 +70,7 @@ private:
 #endif
 
   // Storage for Matrix
-  Eigen::SparseMatrix<double, Eigen::RowMajor> _matA;
+  Eigen::SparseMatrix<T, Eigen::RowMajor> _matA;
 
   // Column and Row maps: usually _row_map will not have ghosts.
   std::shared_ptr<spmv::L2GMap> _col_map;

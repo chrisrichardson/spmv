@@ -10,6 +10,7 @@
 namespace spmv
 {
 
+template <typename T>
 class Matrix;
 
 // Solve A.x=b iteratively with Conjugate Gradient
@@ -24,7 +25,8 @@ class Matrix;
 //
 // @return tuple of result and number of iterations
 //
-std::tuple<Eigen::VectorXd, int> cg(MPI_Comm comm, const Matrix& A,
+
+std::tuple<Eigen::VectorXd, int> cg(MPI_Comm comm, const Matrix<double>& A,
                                     const Eigen::Ref<const Eigen::VectorXd>& b,
                                     int max_its, double rtol);
 

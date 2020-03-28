@@ -8,9 +8,10 @@
 
 using namespace spmv;
 
-Matrix::Matrix(Eigen::SparseMatrix<double, Eigen::RowMajor> A,
-               std::shared_ptr<spmv::L2GMap> col_map,
-               std::shared_ptr<spmv::L2GMap> row_map)
+template <typename T>
+Matrix<T>::Matrix(Eigen::SparseMatrix<T, Eigen::RowMajor> A,
+                  std::shared_ptr<spmv::L2GMap> col_map,
+                  std::shared_ptr<spmv::L2GMap> row_map)
     : _matA(A), _col_map(col_map), _row_map(row_map)
 {
 #ifdef EIGEN_USE_MKL_ALL
@@ -31,7 +32,9 @@ Matrix::Matrix(Eigen::SparseMatrix<double, Eigen::RowMajor> A,
 #endif
 }
 //-----------------------------------------------------------------------------
-Eigen::VectorXd Matrix::operator*(const Eigen::VectorXd& b) const
+template <typename T>
+Eigen::Matrix<T, Eigen::Dynamic, 1>
+    Matrix<T>::operator*(const Eigen::Matrix<T, Eigen::Dynamic, 1>& b) const
 {
 #ifdef EIGEN_USE_MKL_ALL
   Eigen::VectorXd y(_matA.rows());
@@ -44,7 +47,9 @@ Eigen::VectorXd Matrix::operator*(const Eigen::VectorXd& b) const
 #endif
 }
 //-----------------------------------------------------------------------------
-Eigen::VectorXd Matrix::transpmult(const Eigen::VectorXd& b) const
+template <typename T>
+Eigen::Matrix<T, Eigen::Dynamic, 1>
+Matrix<T>::transpmult(const Eigen::Matrix<T, Eigen::Dynamic, 1>& b) const
 {
 #ifdef EIGEN_USE_MKL_ALL
   Eigen::VectorXd y(_matA.cols());
@@ -57,8 +62,9 @@ Eigen::VectorXd Matrix::transpmult(const Eigen::VectorXd& b) const
 #endif
 }
 //-----------------------------------------------------------------------------
-Matrix Matrix::create_matrix(
-    MPI_Comm comm, const Eigen::SparseMatrix<double, Eigen::RowMajor> mat,
+template <typename T>
+Matrix<T> Matrix<T>::create_matrix(
+    MPI_Comm comm, const Eigen::SparseMatrix<T, Eigen::RowMajor> mat,
     std::int64_t nrows_local, std::int64_t ncols_local,
     std::vector<std::int64_t> row_ghosts, std::vector<std::int64_t> col_ghosts)
 {
@@ -93,10 +99,10 @@ Matrix Matrix::create_matrix(
   // send all ghost rows to their owners, using global col idx.
   const std::int32_t* Aouter = mat.outerIndexPtr();
   const std::int32_t* Ainner = mat.innerIndexPtr();
-  const double* Aval = mat.valuePtr();
+  const T* Aval = mat.valuePtr();
 
   std::vector<std::vector<std::int64_t>> p_to_index(mpi_size);
-  std::vector<std::vector<double>> p_to_val(mpi_size);
+  std::vector<std::vector<T>> p_to_val(mpi_size);
   for (std::size_t i = 0; i < row_ghosts.size(); ++i)
   {
     const int p = row_owner[i];
@@ -126,7 +132,7 @@ Matrix Matrix::create_matrix(
 
   std::vector<int> send_size(mpi_size);
   std::vector<std::int64_t> send_index;
-  std::vector<double> send_val;
+  std::vector<T> send_val;
   std::vector<int> send_offset = {0};
   std::vector<int> recv_size(mpi_size);
   for (int p = 0; p < mpi_size; ++p)
@@ -147,12 +153,13 @@ Matrix Matrix::create_matrix(
     recv_offset.push_back(recv_offset.back() + recv_size[p]);
 
   std::vector<std::int64_t> recv_index(recv_offset.back());
-  std::vector<double> recv_val(recv_offset.back());
+  std::vector<T> recv_val(recv_offset.back());
 
   MPI_Alltoallv(send_index.data(), send_size.data(), send_offset.data(),
                 MPI_INT64_T, recv_index.data(), recv_size.data(),
                 recv_offset.data(), MPI_INT64_T, comm);
 
+  // FIXME: MPI type
   MPI_Alltoallv(send_val.data(), send_size.data(), send_offset.data(),
                 MPI_DOUBLE, recv_val.data(), recv_size.data(),
                 recv_offset.data(), MPI_DOUBLE, comm);
@@ -185,7 +192,7 @@ Matrix Matrix::create_matrix(
   for (auto& q : col_ghost_map)
     q.second = c++;
 
-  std::vector<Eigen::Triplet<double>> mat_data;
+  std::vector<Eigen::Triplet<T>> mat_data;
   for (int row = 0; row < nrows_local; ++row)
     for (int j = Aouter[row]; j < Aouter[row + 1]; ++j)
     {
@@ -202,7 +209,7 @@ Matrix Matrix::create_matrix(
 
       assert(row >= 0 and row < nrows_local);
       assert(col >= 0 and col < (int)(ncols_local + col_ghost_map.size()));
-      mat_data.push_back(Eigen::Triplet<double>(row, col, Aval[j]));
+      mat_data.push_back(Eigen::Triplet<T>(row, col, Aval[j]));
     }
 
   // Add received data
@@ -219,7 +226,7 @@ Matrix Matrix::create_matrix(
     for (int k = 0; k < nnz; ++k)
     {
       const std::int64_t global_col = recv_index[pos];
-      const double val = recv_val[pos];
+      const T val = recv_val[pos];
       ++pos;
       int col;
       if (global_col >= col_ranges[mpi_rank + 1]
@@ -233,7 +240,7 @@ Matrix Matrix::create_matrix(
         col = global_col - col_ranges[mpi_rank];
       assert(row >= 0 and row < nrows_local);
       assert(col >= 0 and col < (int)(ncols_local + col_ghost_map.size()));
-      mat_data.push_back(Eigen::Triplet<double>(row, col, val));
+      mat_data.push_back(Eigen::Triplet<T>(row, col, val));
     }
   }
 
@@ -242,7 +249,7 @@ Matrix Matrix::create_matrix(
   for (auto& q : col_ghost_map)
     new_col_ghosts.push_back(q.first);
 
-  Eigen::SparseMatrix<double, Eigen::RowMajor> B(
+  Eigen::SparseMatrix<T, Eigen::RowMajor> B(
       nrows_local, ncols_local + new_col_ghosts.size());
   B.setFromTriplets(mat_data.begin(), mat_data.end());
 
@@ -254,3 +261,6 @@ Matrix Matrix::create_matrix(
   spmv::Matrix b(B, col_map, row_map);
   return b;
 }
+
+// Explicit instantiation
+template class spmv::Matrix<double>;

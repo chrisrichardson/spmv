@@ -9,4 +9,4 @@
 #include <spmv/Matrix.h>
 
 /// Create a simple matrix for testing
-spmv::Matrix create_A(MPI_Comm comm, int N);
+spmv::Matrix<double> create_A(MPI_Comm comm, int N);

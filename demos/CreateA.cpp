@@ -28,7 +28,7 @@ std::vector<std::int64_t> owner_ranges(std::int64_t size, std::int64_t N)
   return ranges;
 }
 //-----------------------------------------------------------------------------
-spmv::Matrix create_A(MPI_Comm comm, int N)
+spmv::Matrix<double> create_A(MPI_Comm comm, int N)
 {
   int mpi_rank;
   MPI_Comm_rank(comm, &mpi_rank);
@@ -107,6 +107,6 @@ spmv::Matrix create_A(MPI_Comm comm, int N)
   }
   Alocal.setFromTriplets(vals.begin(), vals.end());
 
-  return spmv::Matrix(Alocal, col_l2g, row_l2g);
+  return spmv::Matrix<double>(Alocal, col_l2g, row_l2g);
 }
 //-----------------------------------------------------------------------------
