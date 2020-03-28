@@ -13,15 +13,17 @@
 
 #pragma once
 
+/// Simple Distributed Sparse Linear Algebra Library
 namespace spmv
 {
+
 class L2GMap;
 
 template <typename T>
 class Matrix
 {
-public:
   /// Matrix with row and column maps.
+public:
   /// This constructor just copies in the data. To build a Matrix with no ghost
   /// rows, use Matrix::create_matrix instead.
   Matrix(Eigen::SparseMatrix<T, Eigen::RowMajor> A,

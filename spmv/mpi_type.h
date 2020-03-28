@@ -7,6 +7,7 @@
 
 namespace spmv
 {
+/// Obtain the MPI datatype for a given scalar type
 template <typename T>
 inline MPI_Datatype mpi_type();
 
@@ -30,4 +31,4 @@ inline MPI_Datatype mpi_type<std::complex<double>>()
 {
   return MPI_DOUBLE_COMPLEX;
 }
-} 
+} // namespace spmv
