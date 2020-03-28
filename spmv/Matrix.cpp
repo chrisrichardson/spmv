@@ -3,6 +3,7 @@
 
 #include "Matrix.h"
 #include "L2GMap.h"
+#include "mpi_type.h"
 #include <iostream>
 #include <numeric>
 
@@ -15,6 +16,14 @@ Matrix<T>::Matrix(Eigen::SparseMatrix<T, Eigen::RowMajor> A,
     : _matA(A), _col_map(col_map), _row_map(row_map)
 {
 #ifdef EIGEN_USE_MKL_ALL
+  mkl_init();
+#endif
+}
+//-----------------------------------------------------------------------------
+#ifdef EIGEN_USE_MKL_ALL
+template <>
+void Matrix<double>::mkl_init()
+{
   sparse_status_t status = mkl_sparse_d_create_csr(
       &A_mkl, SPARSE_INDEX_BASE_ZERO, _matA.rows(), _matA.cols(),
       _matA.outerIndexPtr(), _matA.outerIndexPtr() + 1, _matA.innerIndexPtr(),
@@ -29,37 +38,123 @@ Matrix<T>::Matrix(Eigen::SparseMatrix<T, Eigen::RowMajor> A,
 
   mat_desc.type = SPARSE_MATRIX_TYPE_GENERAL;
   mat_desc.diag = SPARSE_DIAG_NON_UNIT;
-#endif
 }
-//-----------------------------------------------------------------------------
-template <typename T>
-Eigen::Matrix<T, Eigen::Dynamic, 1>
-    Matrix<T>::operator*(const Eigen::Matrix<T, Eigen::Dynamic, 1>& b) const
+//----------------------
+template <>
+void Matrix<std::complex<double>>::mkl_init()
 {
-#ifdef EIGEN_USE_MKL_ALL
+  sparse_status_t status = mkl_sparse_z_create_csr(
+      &A_mkl, SPARSE_INDEX_BASE_ZERO, _matA.rows(), _matA.cols(),
+      _matA.outerIndexPtr(), _matA.outerIndexPtr() + 1, _matA.innerIndexPtr(),
+      (MKL_Complex16*)_matA.valuePtr());
+  assert(status == SPARSE_STATUS_SUCCESS);
+
+  status = mkl_sparse_optimize(A_mkl);
+  assert(status == SPARSE_STATUS_SUCCESS);
+
+  if (status != SPARSE_STATUS_SUCCESS)
+    throw std::runtime_error("Could not create MKL matrix");
+
+  mat_desc.type = SPARSE_MATRIX_TYPE_GENERAL;
+  mat_desc.diag = SPARSE_DIAG_NON_UNIT;
+}
+//----------------------
+template <>
+void Matrix<float>::mkl_init()
+{
+  sparse_status_t status = mkl_sparse_s_create_csr(
+      &A_mkl, SPARSE_INDEX_BASE_ZERO, _matA.rows(), _matA.cols(),
+      _matA.outerIndexPtr(), _matA.outerIndexPtr() + 1, _matA.innerIndexPtr(),
+      _matA.valuePtr());
+  assert(status == SPARSE_STATUS_SUCCESS);
+
+  status = mkl_sparse_optimize(A_mkl);
+  assert(status == SPARSE_STATUS_SUCCESS);
+
+  if (status != SPARSE_STATUS_SUCCESS)
+    throw std::runtime_error("Could not create MKL matrix");
+
+  mat_desc.type = SPARSE_MATRIX_TYPE_GENERAL;
+  mat_desc.diag = SPARSE_DIAG_NON_UNIT;
+}
+//----------------------
+template <>
+Eigen::Matrix<std::complex<double>, Eigen::Dynamic, 1>
+    Matrix<std::complex<double>>::operator*(
+        const Eigen::Matrix<std::complex<double>, Eigen::Dynamic, 1>& b) const
+{
+  Eigen::Matrix<std::complex<double>, Eigen::Dynamic, 1> y(_matA.rows());
+  MKL_Complex16 one({1.0, 0.0}), zero({0.0, 0.0});
+  mkl_sparse_z_mv(SPARSE_OPERATION_NON_TRANSPOSE, one, A_mkl, mat_desc,
+                  (MKL_Complex16*)b.data(), zero, (MKL_Complex16*)y.data());
+  return y;
+}
+//----------------------
+template <>
+Eigen::Matrix<std::complex<double>, Eigen::Dynamic, 1>
+Matrix<std::complex<double>>::transpmult(
+    const Eigen::Matrix<std::complex<double>, Eigen::Dynamic, 1>& b) const
+{
+  Eigen::Matrix<std::complex<double>, Eigen::Dynamic, 1> y(_matA.rows());
+  MKL_Complex16 one({1.0, 0.0}), zero({0.0, 0.0});
+  mkl_sparse_z_mv(SPARSE_OPERATION_TRANSPOSE, one, A_mkl, mat_desc,
+                  (MKL_Complex16*)b.data(), zero, (MKL_Complex16*)y.data());
+  return y;
+}
+//----------------------
+template <>
+Eigen::VectorXd Matrix<double>::operator*(const Eigen::VectorXd& b) const
+{
   Eigen::VectorXd y(_matA.rows());
   mkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A_mkl, mat_desc,
                   b.data(), 0.0, y.data());
 
   return y;
-#else
-  return _matA * b;
+}
+//---------------------
+template <>
+Eigen::VectorXd Matrix<double>::transpmult(const Eigen::VectorXd& b) const
+{
+  Eigen::VectorXd y(_matA.cols());
+  mkl_sparse_d_mv(SPARSE_OPERATION_TRANSPOSE, 1.0, A_mkl, mat_desc, b.data(),
+                  0.0, y.data());
+
+  return y;
+}
+//----------------------
+template <>
+Eigen::VectorXf Matrix<float>::operator*(const Eigen::VectorXf& b) const
+{
+  Eigen::VectorXf y(_matA.rows());
+  mkl_sparse_s_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A_mkl, mat_desc,
+                  b.data(), 0.0, y.data());
+
+  return y;
+}
+//---------------------
+template <>
+Eigen::VectorXf Matrix<float>::transpmult(const Eigen::VectorXf& b) const
+{
+  Eigen::VectorXf y(_matA.cols());
+  mkl_sparse_s_mv(SPARSE_OPERATION_TRANSPOSE, 1.0, A_mkl, mat_desc, b.data(),
+                  0.0, y.data());
+
+  return y;
+}
 #endif
+//-----------------------------------------------------------------------------
+template <typename T>
+Eigen::Matrix<T, Eigen::Dynamic, 1>
+    Matrix<T>::operator*(const Eigen::Matrix<T, Eigen::Dynamic, 1>& b) const
+{
+  return _matA * b;
 }
 //-----------------------------------------------------------------------------
 template <typename T>
 Eigen::Matrix<T, Eigen::Dynamic, 1>
 Matrix<T>::transpmult(const Eigen::Matrix<T, Eigen::Dynamic, 1>& b) const
 {
-#ifdef EIGEN_USE_MKL_ALL
-  Eigen::VectorXd y(_matA.cols());
-  mkl_sparse_d_mv(SPARSE_OPERATION_TRANSPOSE, 1.0, A_mkl, mat_desc, b.data(),
-                  0.0, y.data());
-
-  return y;
-#else
   return _matA.transpose() * b;
-#endif
 }
 //-----------------------------------------------------------------------------
 template <typename T>
@@ -159,10 +254,9 @@ Matrix<T> Matrix<T>::create_matrix(
                 MPI_INT64_T, recv_index.data(), recv_size.data(),
                 recv_offset.data(), MPI_INT64_T, comm);
 
-  // FIXME: MPI type
   MPI_Alltoallv(send_val.data(), send_size.data(), send_offset.data(),
-                MPI_DOUBLE, recv_val.data(), recv_size.data(),
-                recv_offset.data(), MPI_DOUBLE, comm);
+                mpi_type<T>(), recv_val.data(), recv_size.data(),
+                recv_offset.data(), mpi_type<T>(), comm);
 
   // Create new map from global column index to local
   std::map<std::int64_t, int> col_ghost_map;
@@ -258,9 +352,11 @@ Matrix<T> Matrix<T>::create_matrix(
   std::shared_ptr<spmv::L2GMap> row_map = std::make_shared<spmv::L2GMap>(
       comm, nrows_local, std::vector<std::int64_t>());
 
-  spmv::Matrix b(B, col_map, row_map);
+  spmv::Matrix<T> b(B, col_map, row_map);
   return b;
 }
 
 // Explicit instantiation
+template class spmv::Matrix<float>;
 template class spmv::Matrix<double>;
+template class spmv::Matrix<std::complex<double>>;

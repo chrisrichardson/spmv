@@ -2,6 +2,7 @@
 // SPDX-License-Identifier:    MIT
 
 #include "L2GMap.h"
+#include "mpi_type.h"
 #include <algorithm>
 #include <complex>
 #include <iostream>
@@ -10,32 +11,6 @@
 
 using namespace spmv;
 
-namespace
-{
-template <typename T>
-MPI_Datatype mpi_type();
-
-template <>
-MPI_Datatype mpi_type<float>()
-{
-  return MPI_FLOAT;
-}
-template <>
-MPI_Datatype mpi_type<std::complex<float>>()
-{
-  return MPI_C_FLOAT_COMPLEX;
-}
-template <>
-MPI_Datatype mpi_type<double>()
-{
-  return MPI_DOUBLE;
-}
-template <>
-MPI_Datatype mpi_type<std::complex<double>>()
-{
-  return MPI_DOUBLE_COMPLEX;
-}
-} // namespace
 //-----------------------------------------------------------------------------
 L2GMap::L2GMap(MPI_Comm comm, std::int64_t local_size,
                const std::vector<std::int64_t>& ghosts)

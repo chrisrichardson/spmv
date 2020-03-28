@@ -67,6 +67,7 @@ private:
 #ifdef EIGEN_USE_MKL_ALL
   sparse_matrix_t A_mkl;
   struct matrix_descr mat_desc;
+  void mkl_init();
 #endif
 
   // Storage for Matrix
