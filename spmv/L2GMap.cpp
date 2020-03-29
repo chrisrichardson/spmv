@@ -82,6 +82,8 @@ L2GMap::L2GMap(MPI_Comm comm, std::int64_t local_size,
                                  MPI_UNWEIGHTED, neighbour_size,
                                  neighbours.data(), MPI_UNWEIGHTED,
                                  MPI_INFO_NULL, false, &_neighbour_comm);
+
+  _recv_count.resize(neighbour_size);
   if (neighbour_size == 0)
   {
     // Needed for OpenMPI
@@ -91,7 +93,7 @@ L2GMap::L2GMap(MPI_Comm comm, std::int64_t local_size,
 
   // Send NNZs by Alltoall - these will be the receive counts for incoming
   // index/values
-  _recv_count.resize(neighbour_size);
+
   MPI_Neighbor_alltoall(_send_count.data(), 1, MPI_INT, _recv_count.data(), 1,
                         MPI_INT, _neighbour_comm);
 
