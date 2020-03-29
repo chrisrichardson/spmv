@@ -4,11 +4,9 @@
 
 namespace spmv
 {
+template <typename T>
 class Matrix;
 
-
- void jacobi(const spmv::Matrix& A,
-             Eigen::Ref<Eigen::VectorXd> x,
-             const Eigen::Ref<const Eigen::VectorXd>& b,
-             const Eigen::Ref<const Eigen::VectorXd>& D);
+double jacobi(const spmv::Matrix<double>& A, Eigen::VectorXd& x,
+              const Eigen::VectorXd& b);
 } // namespace spmv

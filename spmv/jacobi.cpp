@@ -9,11 +9,12 @@
 // Jacobi iteration
 // x = x + D-1 (b - A x)
 
-void spmv::jacobi(const spmv::Matrix& A, Eigen::Ref<Eigen::VectorXd> x,
-                  const Eigen::Ref<const Eigen::VectorXd>& b,
-                  const Eigen::Ref<const Eigen::VectorXd>& D)
+double spmv::jacobi(const spmv::Matrix<double>& A, Eigen::VectorXd& x,
+                    const Eigen::VectorXd& b)
 {
   A.col_map()->update(x.data());
+  Eigen::VectorXd diag = A.mat().diagonal();
   Eigen::VectorXd r = b - A * x;
-  x.head(b.size()) += (r.array() * D.array()).matrix();
+  x.head(b.size()) += (r.array() / diag.array()).matrix();
+  return r.norm();
 }

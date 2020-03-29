@@ -17,6 +17,11 @@ inline MPI_Datatype mpi_type<float>()
   return MPI_FLOAT;
 }
 template <>
+inline MPI_Datatype mpi_type<int>()
+{
+  return MPI_INT;
+}
+template <>
 inline MPI_Datatype mpi_type<std::complex<float>>()
 {
   return MPI_C_FLOAT_COMPLEX;

@@ -52,9 +52,9 @@ diagonal_block_nnz(const Eigen::SparseMatrix<double, Eigen::RowMajor>& mat)
   return innernnz;
 }
 //-----------------------------------------------------------------------------
-spmv::Matrix spmv::remap_mat(MPI_Comm comm,
-                             std::shared_ptr<const spmv::L2GMap> row_map,
-                             const spmv::Matrix& mat)
+spmv::Matrix<double>
+spmv::remap_mat(MPI_Comm comm, std::shared_ptr<const spmv::L2GMap> row_map,
+                const spmv::Matrix<double>& mat)
 {
   // Takes a SparseMatrix A, and fetches the ghost rows in row_map and
   // appends them to A, creating a new SparseMatrix B
@@ -242,5 +242,5 @@ spmv::Matrix spmv::remap_mat(MPI_Comm comm,
 
   std::cout << s.str();
 
-  return spmv::Matrix(B, new_col_map, new_row_map);
+  return spmv::Matrix<double>(B, new_col_map, new_row_map);
 }

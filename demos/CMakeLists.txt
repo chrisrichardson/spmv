@@ -7,5 +7,8 @@ target_link_libraries(cgmain LINK_PUBLIC ${PROJECT_NAME})
 add_executable(matvecmain matvecmain.cpp CreateA.cpp)
 target_link_libraries(matvecmain ${PROJECT_NAME})
 
+add_executable(jacobimain jacobimain.cpp)
+target_link_libraries(jacobimain ${PROJECT_NAME})
+
 add_executable(restrictmain restrictmain.cpp)
 target_link_libraries(restrictmain ${PROJECT_NAME})
