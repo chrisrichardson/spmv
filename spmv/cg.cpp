@@ -79,5 +79,5 @@ spmv::cg(MPI_Comm comm, const spmv::Matrix<double>& A,
       break;
   }
 
-  return {std::move(x), k};
+  return std::make_tuple(std::move(x), k);
 }

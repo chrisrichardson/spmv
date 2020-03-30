@@ -6,6 +6,7 @@
 #include "mpi_type.h"
 #include <iostream>
 #include <numeric>
+#include <set>
 
 using namespace spmv;
 
@@ -241,18 +242,47 @@ Matrix<T> Matrix<T>::create_matrix(
         = std::upper_bound(row_ranges.begin(), row_ranges.end(), row_ghosts[i]);
     assert(it != row_ranges.end());
     row_owner[i] = it - row_ranges.begin() - 1;
+    assert(row_owner[i] != mpi_rank);
   }
+
+  // Create a neighbour comm, remap row_owner to neighbour number
+  std::set<int> neighbour_set(row_owner.begin(), row_owner.end());
+  std::vector<int> dests(neighbour_set.begin(), neighbour_set.end());
+  std::map<int, int> proc_to_dest;
+  for (std::size_t i = 0; i < dests.size(); ++i)
+    proc_to_dest.insert({dests[i], i});
+  for (auto& q : row_owner)
+    q = proc_to_dest[q];
+
+  // Get list of sources (may be different from dests, requires AlltoAll to
+  // find)
+  std::vector<char> is_dest(mpi_size, 0);
+  for (int d : dests)
+    is_dest[d] = 1;
+  std::vector<char> is_source(mpi_size, 0);
+  MPI_Alltoall(is_dest.data(), 1, MPI_CHAR, is_source.data(), 1, MPI_CHAR,
+               comm);
+  std::vector<int> sources;
+  for (int i = 0; i < mpi_size; ++i)
+    if (is_source[i] == 1)
+      sources.push_back(i);
+
+  MPI_Comm neighbour_comm;
+  MPI_Dist_graph_create_adjacent(
+      comm, sources.size(), sources.data(), MPI_UNWEIGHTED, dests.size(),
+      dests.data(), MPI_UNWEIGHTED, MPI_INFO_NULL, false, &neighbour_comm);
 
   // send all ghost rows to their owners, using global col idx.
   const std::int32_t* Aouter = mat.outerIndexPtr();
   const std::int32_t* Ainner = mat.innerIndexPtr();
   const T* Aval = mat.valuePtr();
 
-  std::vector<std::vector<std::int64_t>> p_to_index(mpi_size);
-  std::vector<std::vector<T>> p_to_val(mpi_size);
+  std::vector<std::vector<std::int64_t>> p_to_index(dests.size());
+  std::vector<std::vector<T>> p_to_val(dests.size());
   for (std::size_t i = 0; i < row_ghosts.size(); ++i)
   {
     const int p = row_owner[i];
+    assert(p != -1);
     p_to_index[p].push_back(row_ghosts[i]);
     p_to_val[p].push_back(0.0);
     p_to_index[p].push_back(Aouter[nrows_local + i + 1]
@@ -275,14 +305,11 @@ Matrix<T> Matrix<T>::create_matrix(
     }
   }
 
-  // FIXME: Create a neighbour comm instead?
-
-  std::vector<int> send_size(mpi_size);
+  std::vector<int> send_size(dests.size());
   std::vector<std::int64_t> send_index;
   std::vector<T> send_val;
   std::vector<int> send_offset = {0};
-  std::vector<int> recv_size(mpi_size);
-  for (int p = 0; p < mpi_size; ++p)
+  for (std::size_t p = 0; p < dests.size(); ++p)
   {
     send_index.insert(send_index.end(), p_to_index[p].begin(),
                       p_to_index[p].end());
@@ -292,23 +319,25 @@ Matrix<T> Matrix<T>::create_matrix(
     send_offset.push_back(send_index.size());
   }
 
-  MPI_Alltoall(send_size.data(), 1, MPI_INT, recv_size.data(), 1, MPI_INT,
-               comm);
+  std::vector<int> recv_size(sources.size());
+  MPI_Neighbor_alltoall(send_size.data(), 1, MPI_INT, recv_size.data(), 1,
+                        MPI_INT, neighbour_comm);
 
   std::vector<int> recv_offset = {0};
-  for (int p = 0; p < mpi_size; ++p)
-    recv_offset.push_back(recv_offset.back() + recv_size[p]);
+  for (int r : recv_size)
+    recv_offset.push_back(recv_offset.back() + r);
 
   std::vector<std::int64_t> recv_index(recv_offset.back());
   std::vector<T> recv_val(recv_offset.back());
 
-  MPI_Alltoallv(send_index.data(), send_size.data(), send_offset.data(),
-                MPI_INT64_T, recv_index.data(), recv_size.data(),
-                recv_offset.data(), MPI_INT64_T, comm);
+  MPI_Neighbor_alltoallv(send_index.data(), send_size.data(),
+                         send_offset.data(), MPI_INT64_T, recv_index.data(),
+                         recv_size.data(), recv_offset.data(), MPI_INT64_T,
+                         neighbour_comm);
 
-  MPI_Alltoallv(send_val.data(), send_size.data(), send_offset.data(),
-                mpi_type<T>(), recv_val.data(), recv_size.data(),
-                recv_offset.data(), mpi_type<T>(), comm);
+  MPI_Neighbor_alltoallv(send_val.data(), send_size.data(), send_offset.data(),
+                         mpi_type<T>(), recv_val.data(), recv_size.data(),
+                         recv_offset.data(), mpi_type<T>(), neighbour_comm);
 
   // Create new map from global column index to local
   std::map<std::int64_t, int> col_ghost_map;

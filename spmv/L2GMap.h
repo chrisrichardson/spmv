@@ -12,7 +12,8 @@ namespace spmv
 {
 
 class L2GMap
-/// Local to Global Map
+/// @brief Local to Global Map
+///
 /// Maps from the local indices on the current process to global indices across
 /// all processes. The local process owns a contiguous set of the global
 /// indices, starting at "global_offset". Any indices which are not owned appear
@@ -20,9 +21,11 @@ class L2GMap
 {
 public:
   /// L2GMap (Local to Global Map)
+  /// ----------------------------
   /// @param comm MPI Comm
   /// @param local_size Local size
-  /// @param ghosts Ghost indices, owned by other processes
+  /// @param ghosts Ghost indices, owned by other processes.
+  /// Ghosts must be sorted in ascending order.
   L2GMap(MPI_Comm comm, std::int64_t local_size,
          const std::vector<std::int64_t>& ghosts);
 

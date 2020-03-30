@@ -4,14 +4,14 @@ add_library(${PROJECT_NAME} SHARED L2GMap.cpp Matrix.cpp read_petsc.cpp cg.cpp u
 target_include_directories (${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories (${PROJECT_NAME} INTERFACE $<INSTALL_INTERFACE:include>)
 # Target libraries
-target_link_libraries(${PROJECT_NAME} ${MPI_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} PUBLIC ${MPI_LIBRARIES})
 
 set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "spmv.h")
 set_target_properties(${PROJECT_NAME} PROPERTIES PRIVATE_HEADER "L2GMap.h;Matrix.h;read_petsc.h;cg.h;util.h;jacobi.h")
 
 if(BLAS_FOUND)
     target_compile_definitions(${PROJECT_NAME} PUBLIC EIGEN_USE_MKL_ALL)
-    target_link_libraries(${PROJECT_NAME} ${BLAS_LIBRARIES})
+    target_link_libraries(${PROJECT_NAME} PUBLIC ${BLAS_LIBRARIES})
 endif()
 
 
