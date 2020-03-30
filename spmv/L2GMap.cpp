@@ -54,8 +54,8 @@ L2GMap::L2GMap(MPI_Comm comm, std::int64_t local_size,
   }
   assert(ghost_local.size() == _ghosts.size());
 
-  // Find out who is a neighbour (needed for asymmetric graph, since some may
-  // only receive but not send back).
+  // Symmetrise neighbours. This ensures that both forward and reverse updates
+  // will work.
   std::vector<std::int32_t> remote_count(mpi_size);
   MPI_Alltoall(ghost_count.data(), 1, MPI_INT, remote_count.data(), 1, MPI_INT,
                comm);
@@ -78,14 +78,22 @@ L2GMap::L2GMap(MPI_Comm comm, std::int64_t local_size,
   }
 
   const int neighbour_size = neighbours.size();
-  MPI_Dist_graph_create_adjacent(comm, neighbours.size(), neighbours.data(),
-                                 MPI_UNWEIGHTED, neighbours.size(),
+  MPI_Dist_graph_create_adjacent(comm, neighbour_size, neighbours.data(),
+                                 MPI_UNWEIGHTED, neighbour_size,
                                  neighbours.data(), MPI_UNWEIGHTED,
                                  MPI_INFO_NULL, false, &_neighbour_comm);
 
+  _recv_count.resize(neighbour_size);
+  if (neighbour_size == 0)
+  {
+    // Needed for OpenMPI
+    _send_count = {0};
+    _recv_count = {0};
+  }
+
   // Send NNZs by Alltoall - these will be the receive counts for incoming
   // index/values
-  _recv_count.resize(neighbour_size);
+
   MPI_Neighbor_alltoall(_send_count.data(), 1, MPI_INT, _recv_count.data(), 1,
                         MPI_INT, _neighbour_comm);
 
@@ -118,16 +126,17 @@ L2GMap::~L2GMap() { MPI_Comm_free(&_neighbour_comm); }
 template <typename T>
 void L2GMap::update(T* vec_data) const
 {
-  MPI_Datatype data_type = mpi_type<T>();
+  const int num_indices = _indexbuf.size();
 
   // Get data from local indices to send to other processes, landing in their
   // ghost region
-  std::vector<T> databuf(_indexbuf.size());
-  for (std::size_t i = 0; i < _indexbuf.size(); ++i)
+  std::vector<T> databuf(num_indices);
+  for (int i = 0; i < num_indices; ++i)
     databuf[i] = vec_data[_indexbuf[i]];
 
   // Send actual values - NB meaning of _send and _recv count/offset is
   // reversed
+  MPI_Datatype data_type = mpi_type<T>();
   int err = MPI_Neighbor_alltoallv(databuf.data(), _recv_count.data(),
                                    _recv_offset.data(), data_type, vec_data,
                                    _send_count.data(), _send_offset.data(),
@@ -139,10 +148,12 @@ void L2GMap::update(T* vec_data) const
 template <typename T>
 void L2GMap::reverse_update(T* vec_data) const
 {
-  MPI_Datatype data_type = mpi_type<T>();
+  const int num_indices = _indexbuf.size();
+
   // Send values from ghost region of vector to remotes
   // accumulating in local vector.
-  std::vector<T> databuf(_indexbuf.size());
+  std::vector<T> databuf(num_indices);
+  MPI_Datatype data_type = mpi_type<T>();
   int err = MPI_Neighbor_alltoallv(
       vec_data, _send_count.data(), _send_offset.data(), data_type,
       databuf.data(), _recv_count.data(), _recv_offset.data(), data_type,
@@ -150,7 +161,7 @@ void L2GMap::reverse_update(T* vec_data) const
   if (err != MPI_SUCCESS)
     throw std::runtime_error("MPI failure");
 
-  for (std::size_t i = 0; i < _indexbuf.size(); ++i)
+  for (int i = 0; i < num_indices; ++i)
     vec_data[_indexbuf[i]] += databuf[i];
 }
 //-----------------------------------------------------------------------------
