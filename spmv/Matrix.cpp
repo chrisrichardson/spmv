@@ -16,9 +16,7 @@ Matrix<T>::Matrix(Eigen::SparseMatrix<T, Eigen::RowMajor> A,
                   std::shared_ptr<spmv::L2GMap> row_map)
     : _matA(A), _col_map(col_map), _row_map(row_map)
 {
-#ifdef EIGEN_USE_MKL_ALL
   mkl_init();
-#endif
 }
 
 template <typename T>
@@ -30,137 +28,23 @@ Matrix<T>::~Matrix()
 }
 
 //-----------------------------------------------------------------------------
-#ifdef EIGEN_USE_MKL_ALL
 template <>
 void Matrix<double>::mkl_init()
 {
-  sparse_status_t status = mkl_sparse_d_create_csr(
-      &A_mkl, SPARSE_INDEX_BASE_ZERO, _matA.rows(), _matA.cols(),
-      _matA.outerIndexPtr(), _matA.outerIndexPtr() + 1, _matA.innerIndexPtr(),
-      _matA.valuePtr());
-  assert(status == SPARSE_STATUS_SUCCESS);
+  mkl::sparse::matrixInit(&A_onemkl);
 
-  status = mkl_sparse_optimize(A_mkl);
-  assert(status == SPARSE_STATUS_SUCCESS);
-
-  if (status != SPARSE_STATUS_SUCCESS)
-    throw std::runtime_error("Could not create MKL matrix");
-
-  mat_desc.type = SPARSE_MATRIX_TYPE_GENERAL;
-  mat_desc.diag = SPARSE_DIAG_NON_UNIT;
-}
-//----------------------
-template <>
-void Matrix<std::complex<double>>::mkl_init()
-{
-  sparse_status_t status = mkl_sparse_z_create_csr(
-      &A_mkl, SPARSE_INDEX_BASE_ZERO, _matA.rows(), _matA.cols(),
-      _matA.outerIndexPtr(), _matA.outerIndexPtr() + 1, _matA.innerIndexPtr(),
-      (MKL_Complex16*)_matA.valuePtr());
-  assert(status == SPARSE_STATUS_SUCCESS);
-
-  status = mkl_sparse_optimize(A_mkl);
-  assert(status == SPARSE_STATUS_SUCCESS);
-
-  if (status != SPARSE_STATUS_SUCCESS)
-    throw std::runtime_error("Could not create MKL matrix");
-
-  mat_desc.type = SPARSE_MATRIX_TYPE_GENERAL;
-  mat_desc.diag = SPARSE_DIAG_NON_UNIT;
-}
-//----------------------
-template <>
-void Matrix<float>::mkl_init()
-{
-  sparse_status_t status = mkl_sparse_s_create_csr(
-      &A_mkl, SPARSE_INDEX_BASE_ZERO, _matA.rows(), _matA.cols(),
-      _matA.outerIndexPtr(), _matA.outerIndexPtr() + 1, _matA.innerIndexPtr(),
-      _matA.valuePtr());
-  assert(status == SPARSE_STATUS_SUCCESS);
-
-  status = mkl_sparse_optimize(A_mkl);
-  assert(status == SPARSE_STATUS_SUCCESS);
-
-  if (status != SPARSE_STATUS_SUCCESS)
-    throw std::runtime_error("Could not create MKL matrix");
-
-  mat_desc.type = SPARSE_MATRIX_TYPE_GENERAL;
-  mat_desc.diag = SPARSE_DIAG_NON_UNIT;
-}
-//----------------------
-template <>
-void Matrix<std::complex<float>>::mkl_init()
-{
-  sparse_status_t status = mkl_sparse_c_create_csr(
-      &A_mkl, SPARSE_INDEX_BASE_ZERO, _matA.rows(), _matA.cols(),
-      _matA.outerIndexPtr(), _matA.outerIndexPtr() + 1, _matA.innerIndexPtr(),
-      (MKL_Complex8*)_matA.valuePtr());
-  assert(status == SPARSE_STATUS_SUCCESS);
-
-  status = mkl_sparse_optimize(A_mkl);
-  assert(status == SPARSE_STATUS_SUCCESS);
-
-  if (status != SPARSE_STATUS_SUCCESS)
-    throw std::runtime_error("Could not create MKL matrix");
-
-  mat_desc.type = SPARSE_MATRIX_TYPE_GENERAL;
-  mat_desc.diag = SPARSE_DIAG_NON_UNIT;
-}
-//----------------------
-template <>
-Eigen::Matrix<std::complex<double>, Eigen::Dynamic, 1>
-    Matrix<std::complex<double>>::operator*(
-        const Eigen::Matrix<std::complex<double>, Eigen::Dynamic, 1>& b) const
-{
-  Eigen::Matrix<std::complex<double>, Eigen::Dynamic, 1> y(_matA.rows());
-  const MKL_Complex16 one({1.0, 0.0}), zero({0.0, 0.0});
-  mkl_sparse_z_mv(SPARSE_OPERATION_NON_TRANSPOSE, one, A_mkl, mat_desc,
-                  (MKL_Complex16*)b.data(), zero, (MKL_Complex16*)y.data());
-  return y;
-}
-//----------------------
-template <>
-Eigen::Matrix<std::complex<double>, Eigen::Dynamic, 1>
-Matrix<std::complex<double>>::transpmult(
-    const Eigen::Matrix<std::complex<double>, Eigen::Dynamic, 1>& b) const
-{
-  Eigen::Matrix<std::complex<double>, Eigen::Dynamic, 1> y(_matA.rows());
-  const MKL_Complex16 one({1.0, 0.0}), zero({0.0, 0.0});
-  mkl_sparse_z_mv(SPARSE_OPERATION_TRANSPOSE, one, A_mkl, mat_desc,
-                  (MKL_Complex16*)b.data(), zero, (MKL_Complex16*)y.data());
-  return y;
-}
-//----------------------
-template <>
-Eigen::Matrix<std::complex<float>, Eigen::Dynamic, 1>
-    Matrix<std::complex<float>>::operator*(
-        const Eigen::Matrix<std::complex<float>, Eigen::Dynamic, 1>& b) const
-{
-  Eigen::Matrix<std::complex<float>, Eigen::Dynamic, 1> y(_matA.rows());
-  const MKL_Complex8 one({1.0, 0.0}), zero({0.0, 0.0});
-  mkl_sparse_c_mv(SPARSE_OPERATION_NON_TRANSPOSE, one, A_mkl, mat_desc,
-                  (MKL_Complex8*)b.data(), zero, (MKL_Complex8*)y.data());
-  return y;
-}
-//----------------------
-template <>
-Eigen::Matrix<std::complex<float>, Eigen::Dynamic, 1>
-Matrix<std::complex<float>>::transpmult(
-    const Eigen::Matrix<std::complex<float>, Eigen::Dynamic, 1>& b) const
-{
-  Eigen::Matrix<std::complex<float>, Eigen::Dynamic, 1> y(_matA.rows());
-  const MKL_Complex8 one({1.0, 0.0}), zero({0.0, 0.0});
-  mkl_sparse_c_mv(SPARSE_OPERATION_TRANSPOSE, one, A_mkl, mat_desc,
-                  (MKL_Complex8*)b.data(), zero, (MKL_Complex8*)y.data());
-  return y;
+  mkl::sparse::setCSRstructure(A_onemkl, _matA.rows(), _matA.cols(),
+                               mkl::index_base::zero, _matA.outerIndexPtr(),
+                               _matA.innerIndexPtr(), _matA.valuePtr());
 }
 //----------------------
 template <>
 Eigen::VectorXd Matrix<double>::operator*(const Eigen::VectorXd& b) const
 {
   Eigen::VectorXd y(_matA.rows());
-  mkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A_mkl, mat_desc,
-                  b.data(), 0.0, y.data());
+  cl::sycl::queue q;
+  mkl::sparse::gemv(q, mkl::transpose::nontrans, 1.0, A_onemkl,
+                    const_cast<double*>(b.data()), 0.0, y.data());
 
   return y;
 }
@@ -169,36 +53,15 @@ template <>
 Eigen::VectorXd Matrix<double>::transpmult(const Eigen::VectorXd& b) const
 {
   Eigen::VectorXd y(_matA.cols());
-  mkl_sparse_d_mv(SPARSE_OPERATION_TRANSPOSE, 1.0, A_mkl, mat_desc, b.data(),
-                  0.0, y.data());
+  // mkl_sparse_s_mv(SPARSE_OPERATION_TRANSPOSE, 1.0, A_mkl, mat_desc, b.data(),
+  //                 0.0, y.data());
 
   return y;
 }
-//----------------------
-template <>
-Eigen::VectorXf Matrix<float>::operator*(const Eigen::VectorXf& b) const
-{
-  Eigen::VectorXf y(_matA.rows());
-  mkl_sparse_s_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A_mkl, mat_desc,
-                  b.data(), 0.0, y.data());
-
-  return y;
-}
-//---------------------
-template <>
-Eigen::VectorXf Matrix<float>::transpmult(const Eigen::VectorXf& b) const
-{
-  Eigen::VectorXf y(_matA.cols());
-  mkl_sparse_s_mv(SPARSE_OPERATION_TRANSPOSE, 1.0, A_mkl, mat_desc, b.data(),
-                  0.0, y.data());
-
-  return y;
-}
-#endif
 //-----------------------------------------------------------------------------
 template <typename T>
-Eigen::Matrix<T, Eigen::Dynamic, 1> Matrix<T>::
-operator*(const Eigen::Matrix<T, Eigen::Dynamic, 1>& b) const
+Eigen::Matrix<T, Eigen::Dynamic, 1>
+Matrix<T>::operator*(const Eigen::Matrix<T, Eigen::Dynamic, 1>& b) const
 {
   return _matA * b;
 }
