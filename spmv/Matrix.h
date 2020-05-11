@@ -5,6 +5,8 @@
 #include <Eigen/Sparse>
 #include <memory>
 
+#include <mkl_sycl.hpp>
+
 #ifdef EIGEN_USE_MKL_ALL
 #include <mkl.h>
 #endif
@@ -61,12 +63,8 @@ public:
                 std::vector<std::int64_t> col_ghosts);
 
 private:
-// MKL pointers to Eigen data
-#ifdef EIGEN_USE_MKL_ALL
-  sparse_matrix_t A_mkl;
-  struct matrix_descr mat_desc;
+  mkl::sparse::matrixHandle_t A_onemkl;
   void mkl_init();
-#endif
 
   // Storage for Matrix
   Eigen::SparseMatrix<T, Eigen::RowMajor> _matA;
