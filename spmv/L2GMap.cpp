@@ -8,6 +8,7 @@
 #include <iostream>
 #include <set>
 #include <vector>
+#include <execution>
 
 using namespace spmv;
 
@@ -131,7 +132,7 @@ void L2GMap::update(T* vec_data) const
   // Get data from local indices to send to other processes, landing in their
   // ghost region
   std::vector<T> databuf(num_indices);
-  std::transform(std::execution::par_unseq,
+  std::transform(
       std::begin(_indexbuf), std::end(_indexbuf), std::begin(databuf),
       [&vec_data](auto i) { return vec_data[i]; });
 
