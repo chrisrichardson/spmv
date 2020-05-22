@@ -48,13 +48,13 @@ spmv::cg(MPI_Comm comm, const spmv::Matrix<double>& A,
   r = b; // b - A * x0
   p.head(M) = r;
 
-  double rnorm = squaredNorm(r);
-  double rnorm0;
-  MPI_Allreduce(&rnorm, &rnorm0, 1, MPI_DOUBLE, MPI_SUM, comm);
+  auto rnorm = std::make_shared<double>(squaredNorm(r));
+  auto rnorm0 = std::make_shared<double>();
+  MPI_Allreduce(rnorm.get(), rnorm0.get(), 1, MPI_DOUBLE, MPI_SUM, comm);
 
   // Iterations of CG
   const double rtol2 = rtol * rtol;
-  double rnorm_old = rnorm0;
+  auto rnorm_old = std::make_shared<double>(*rnorm0);
   int k = 0;
   while (k < kmax)
   {
@@ -64,36 +64,40 @@ spmv::cg(MPI_Comm comm, const spmv::Matrix<double>& A,
     col_l2g->update(p.data());
     y = A * p;
 
-    // Calculate alpha = r.r/p.y
+    //// Calculate alpha = r.r/p.y
     //double pdoty = p.head(M).dot(y);
-    double pdoty = std::transform_reduce(
+    auto pdoty = std::make_shared<double>(std::transform_reduce(
       p.data(), p.data() + M, y.data(),
-      0.0, std::plus<double>(), std::multiplies<double>());
-    double pdoty_sum;
-    MPI_Allreduce(&pdoty, &pdoty_sum, 1, MPI_DOUBLE, MPI_SUM, comm);
-    double alpha = rnorm_old / pdoty_sum;
+      0.0, std::plus<double>(), std::multiplies<double>()));
+    auto pdoty_sum = std::make_shared<double>();
+    MPI_Allreduce(pdoty.get(), pdoty_sum.get(), 1, MPI_DOUBLE, MPI_SUM, comm);
+    auto alpha = std::make_shared<double>(*rnorm_old / *pdoty_sum);
+    //double alpha = rnorm_old / pdoty_sum;
 
     // Update x and r
     //x.head(M) += alpha * p.head(M);
+    //r -= *alpha * y;
     std::transform(
       x.data(), x.data() + M, p.data(), x.data(),
-      [alpha](auto x, auto p) { return x + alpha * p; });
-    r -= alpha * y;
+      [alpha](auto x, auto p) { return x + *alpha * p; });
+    std::transform(
+      r.data(), r.data() + r.size(), y.data(), r.data(),
+      [alpha](auto r, auto y) { return r - *alpha * y; });
 
     // Update rnorm
-    rnorm = squaredNorm(r);
-    double rnorm_new;
-    MPI_Allreduce(&rnorm, &rnorm_new, 1, MPI_DOUBLE, MPI_SUM, comm);
-    double beta = rnorm_new / rnorm_old;
-    rnorm_old = rnorm_new;
+    *rnorm = squaredNorm(r);
+    auto rnorm_new = std::make_shared<double>();
+    MPI_Allreduce(rnorm.get(), rnorm_new.get(), 1, MPI_DOUBLE, MPI_SUM, comm);
+    auto beta = std::make_shared<double>(*rnorm_new / *rnorm_old);
+    *rnorm_old = *rnorm_new;
 
     // Update p
     //p.head(M) = p.head(M) * beta + r;
     std::transform(
       p.data(), p.data() + M, r.data(), p.data(),
-      [beta](auto p, auto r) { return p*beta + r; });
+      [beta](auto p, auto r) { return *beta*p + r; });
 
-    if (rnorm_new / rnorm0 < rtol2)
+    if (*rnorm_new / *rnorm0 < rtol2)
       break;
   }
 
