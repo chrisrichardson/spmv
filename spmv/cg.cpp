@@ -11,6 +11,11 @@
 #include <algorithm>
 #include <functional>
 
+template<typename X>
+auto squaredNorm(X x) -> typename X::value_type {
+  return std::transform_reduce(x.data(), x.data() + x.size(), x.data(), typename X::value_type());
+}
+
 //-----------------------------------------------------------------------------
 std::tuple<Eigen::VectorXd, int>
 spmv::cg(MPI_Comm comm, const spmv::Matrix<double>& A,
@@ -43,10 +48,7 @@ spmv::cg(MPI_Comm comm, const spmv::Matrix<double>& A,
   r = b; // b - A * x0
   p.head(M) = r;
 
-  //double rnorm = r.squaredNorm();
-  double rnorm = std::transform_reduce(
-    r.data(), r.data() + r.size(), r.data(),
-    0.0, std::plus<double>(), std::multiplies<double>());
+  double rnorm = squaredNorm(r);
   double rnorm0;
   MPI_Allreduce(&rnorm, &rnorm0, 1, MPI_DOUBLE, MPI_SUM, comm);
 
@@ -79,10 +81,7 @@ spmv::cg(MPI_Comm comm, const spmv::Matrix<double>& A,
     r -= alpha * y;
 
     // Update rnorm
-    //rnorm = r.squaredNorm();
-    rnorm = std::transform_reduce(
-      r.data(), r.data() + r.size(), r.data(),
-      0.0, std::plus<double>(), std::multiplies<double>());
+    rnorm = squaredNorm(r);
     double rnorm_new;
     MPI_Allreduce(&rnorm, &rnorm_new, 1, MPI_DOUBLE, MPI_SUM, comm);
     double beta = rnorm_new / rnorm_old;
