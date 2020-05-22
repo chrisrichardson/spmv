@@ -7,6 +7,10 @@
 #include <iomanip>
 #include <iostream>
 
+#include <numeric>
+#include <algorithm>
+#include <functional>
+
 //-----------------------------------------------------------------------------
 std::tuple<Eigen::VectorXd, int>
 spmv::cg(MPI_Comm comm, const spmv::Matrix<double>& A,
@@ -39,7 +43,10 @@ spmv::cg(MPI_Comm comm, const spmv::Matrix<double>& A,
   r = b; // b - A * x0
   p.head(M) = r;
 
-  double rnorm = r.squaredNorm();
+  //double rnorm = r.squaredNorm();
+  double rnorm = std::transform_reduce(
+    r.data(), r.data() + r.size(), r.data(),
+    0.0, std::plus<double>(), std::multiplies<double>());
   double rnorm0;
   MPI_Allreduce(&rnorm, &rnorm0, 1, MPI_DOUBLE, MPI_SUM, comm);
 
@@ -56,24 +63,36 @@ spmv::cg(MPI_Comm comm, const spmv::Matrix<double>& A,
     y = A * p;
 
     // Calculate alpha = r.r/p.y
-    double pdoty = p.head(M).dot(y);
+    //double pdoty = p.head(M).dot(y);
+    double pdoty = std::transform_reduce(
+      p.data(), p.data() + M, y.data(),
+      0.0, std::plus<double>(), std::multiplies<double>());
     double pdoty_sum;
     MPI_Allreduce(&pdoty, &pdoty_sum, 1, MPI_DOUBLE, MPI_SUM, comm);
     double alpha = rnorm_old / pdoty_sum;
 
     // Update x and r
-    x.head(M) += alpha * p.head(M);
+    //x.head(M) += alpha * p.head(M);
+    std::transform(
+      x.data(), x.data() + M, p.data(), x.data(),
+      [alpha](auto x, auto p) { return x + alpha * p; });
     r -= alpha * y;
 
     // Update rnorm
-    rnorm = r.squaredNorm();
+    //rnorm = r.squaredNorm();
+    rnorm = std::transform_reduce(
+      r.data(), r.data() + r.size(), r.data(),
+      0.0, std::plus<double>(), std::multiplies<double>());
     double rnorm_new;
     MPI_Allreduce(&rnorm, &rnorm_new, 1, MPI_DOUBLE, MPI_SUM, comm);
     double beta = rnorm_new / rnorm_old;
     rnorm_old = rnorm_new;
 
     // Update p
-    p.head(M) = p.head(M) * beta + r;
+    //p.head(M) = p.head(M) * beta + r;
+    std::transform(
+      p.data(), p.data() + M, r.data(), p.data(),
+      [beta](auto p, auto r) { return p*beta + r; });
 
     if (rnorm_new / rnorm0 < rtol2)
       break;
