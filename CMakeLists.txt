@@ -11,6 +11,8 @@ set(PROJECT_NAME spmv)
 set(PACKAGE_VERSION 1.0)
 project(${PROJECT_NAME} VERSION ${PACKAGE_VERSION} LANGUAGES CXX)
 
+include(CTest)
+
 # Set CMake behavior
 cmake_policy(SET CMP0004 NEW)
 

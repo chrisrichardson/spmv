@@ -11,16 +11,55 @@
 #include <algorithm>
 #include <functional>
 
+using std::begin;
+double* begin(Eigen::VectorXd &x) {
+  return x.data();
+}
+using std::end;
+double* end(Eigen::VectorXd &x) {
+  return x.data() + x.size();
+}
+using std::size;
+std::size_t size(Eigen::VectorXd &x) {
+  return x.size();
+}
+
+template <typename X, typename Y>
+std::shared_ptr<typename X::value_type> dot_product(X x, Y y) {
+  return std::make_shared<typename X::value_type>(
+    size(x) <= size(y) ?
+    std::transform_reduce(begin(x), end(x), begin(y), typename X::value_type()) :
+    std::transform_reduce(begin(y), end(y), begin(x), typename X::value_type())
+  );
+}
 template<typename X>
-auto squaredNorm(X x) -> typename X::value_type {
-  return std::transform_reduce(x.data(), x.data() + x.size(), x.data(), typename X::value_type());
+std::shared_ptr<typename X::value_type> squaredNorm(X x) {
+  return dot_product(x, x);
+}
+
+
+namespace mpi {
+
+std::vector<double> allreduce(MPI_Comm const &comm, std::vector<double> const &x, MPI_Op const &op) {
+  std::vector<double> x_global(x.size());
+  MPI_Allreduce(x.data(), x_global.data(), x.size(), MPI_DOUBLE, op, comm);
+  return x_global;
+}
+Eigen::VectorXd allreduce(MPI_Comm const &comm, Eigen::VectorXd const &x, MPI_Op const &op) {
+  Eigen::VectorXd x_global(x.size());
+  MPI_Allreduce(x.data(), x_global.data(), x.size(), MPI_DOUBLE, op, comm);
+  return x_global;
+}
+std::shared_ptr<double> allreduce(MPI_Comm const &comm, std::shared_ptr<double> const &x, MPI_Op const &op) {
+  auto x_global = std::make_shared<double>();
+  MPI_Allreduce(x.get(), x_global.get(), 1, MPI_DOUBLE, op, comm);
+  return x_global;
 }
 
 template<typename T>
-std::shared_ptr<T> allreduce(std::shared_ptr<T> x, MPI_Op const &op, MPI_Comm const &comm) {
-  auto x_global = std::make_shared<T>();
-  MPI_Allreduce(x.get(), x_global.get(), 1, MPI_DOUBLE, op, comm);
-  return x_global;
+T sum(MPI_Comm const &comm, T const &x) {
+  return allreduce(comm, x, MPI_SUM);
+}
 }
 
 //-----------------------------------------------------------------------------
@@ -55,8 +94,7 @@ spmv::cg(MPI_Comm comm, const spmv::Matrix<double>& A,
   r = b; // b - A * x0
   p.head(M) = r;
 
-  auto rnorm0 = std::make_shared<double>(squaredNorm(r));
-  rnorm0 = allreduce(rnorm0, MPI_SUM, comm);
+  auto rnorm0 = mpi::sum(comm, squaredNorm(r));
   auto rnorm = std::make_shared<double>(*rnorm0);
 
   // Iterations of CG
@@ -72,13 +110,8 @@ spmv::cg(MPI_Comm comm, const spmv::Matrix<double>& A,
     y = A * p;
 
     //// Calculate alpha = r.r/p.y
-    //double pdoty = p.head(M).dot(y);
-    auto pdoty = std::make_shared<double>(std::transform_reduce(
-      p.data(), p.data() + M, y.data(),
-      0.0, std::plus<double>(), std::multiplies<double>()));
-    pdoty = allreduce(pdoty, MPI_SUM, comm);
+    auto pdoty = mpi::sum(comm, dot_product(p, y));
     auto alpha = std::make_shared<double>(*rnorm_old / *pdoty);
-    //double alpha = rnorm_old / pdoty_sum;
 
     // Update x and r
     //x.head(M) += alpha * p.head(M);
@@ -91,8 +124,7 @@ spmv::cg(MPI_Comm comm, const spmv::Matrix<double>& A,
       [alpha](auto r, auto y) { return r - *alpha * y; });
 
     // Update rnorm
-    *rnorm = squaredNorm(r);
-    rnorm = allreduce(rnorm, MPI_SUM, comm);
+    auto rnorm = mpi::sum(comm, squaredNorm(r));
     auto beta = std::make_shared<double>(*rnorm / *rnorm_old);
     *rnorm_old = *rnorm;
 
