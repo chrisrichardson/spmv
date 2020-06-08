@@ -37,10 +37,12 @@ public:
   L2GMap& operator=(const L2GMap& p) = delete;
 
   /// Local size
-  /// @param ghosted - if set, return the full local size including ghost
-  /// entries, otherwise, just the number of local, owned entries.
-  /// @return number of entries in local map
-  std::int32_t local_size(bool ghosted) const;
+  /// @return The local size, not including ghost entries.
+  std::int32_t local_size() const;
+
+  /// Number of ghost entries
+  /// @return The number of ghost entries held locally.
+  std::int32_t num_ghosts() const;
 
   /// Global size
   /// @return global size of L2GMap

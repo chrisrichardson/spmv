@@ -61,7 +61,7 @@ int cg_main(int argc, char** argv)
   MPI_Pcontrol(0);
 
   // Get norm on local part of vector
-  double xnorm = x.head(l2g->local_size(false)).squaredNorm();
+  double xnorm = x.head(l2g->local_size()).squaredNorm();
   double xnorm_sum;
   MPI_Allreduce(&xnorm, &xnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
