@@ -34,7 +34,7 @@ void matvec_main()
   std::shared_ptr<const spmv::L2GMap> l2g = A.col_map();
 
   // Get local and global sizes
-  std::int64_t M = A.row_map()->local_size(false);
+  std::int64_t M = A.row_map()->local_size();
   std::int64_t N = l2g->global_size();
   Eigen::VectorXd b(M);
 
@@ -47,7 +47,7 @@ void matvec_main()
     std::cout << "Creating vector of size " << N << "\n";
 
   // Vector with extra space for ghosts at end
-  Eigen::VectorXd psp(l2g->local_size(true));
+  Eigen::VectorXd psp(l2g->local_size() + l2g->num_ghosts());
 
   // Set up values in local range
   int r0 = l2g->global_offset();
