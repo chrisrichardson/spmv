@@ -43,7 +43,7 @@ void restrict_main()
     std::cout << "Creating vector of size " << N << "\n";
 
   // Vector in "column space" with extra space for ghosts at end
-  Eigen::VectorXd psp(l2g->local_size(true));
+  Eigen::VectorXd psp(l2g->local_size() + l2g->num_ghosts());
 
   timer_end = std::chrono::system_clock::now();
   timings["1.VecCreate"] += (timer_end - timer_start);
@@ -67,7 +67,7 @@ void restrict_main()
     timer_end = std::chrono::system_clock::now();
     timings["2.SparseUpdate"] += (timer_end - timer_start);
 
-    Eigen::Map<Eigen::VectorXd> p(psp.data(), l2g->local_size(false));
+    Eigen::Map<Eigen::VectorXd> p(psp.data(), l2g->local_size());
     double pnorm = p.squaredNorm();
     MPI_Allreduce(&pnorm, &pnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 

@@ -74,10 +74,10 @@ spmv::cg(MPI_Comm comm, const spmv::Matrix<double>& A,
   std::shared_ptr<const spmv::L2GMap> row_l2g = A.row_map();
 
   // Check the row map is unghosted
-  if (row_l2g->local_size(true) != row_l2g->local_size(false))
+  if (row_l2g->num_ghosts() > 0)
     throw std::runtime_error("spmv::cg - Error: A.row_map() has ghost entries");
 
-  int M = row_l2g->local_size(false);
+  int M = row_l2g->local_size();
 
   if (b.rows() != M)
     throw std::runtime_error("spmv::cg - Error: b.rows() != A.rows()");
@@ -85,8 +85,8 @@ spmv::cg(MPI_Comm comm, const spmv::Matrix<double>& A,
   // Residual vector
   Eigen::VectorXd r(M);
   Eigen::VectorXd y(M);
-  Eigen::VectorXd x(col_l2g->local_size(true));
-  Eigen::VectorXd p(col_l2g->local_size(true));
+  Eigen::VectorXd x(col_l2g->local_size() + col_l2g->num_ghosts());
+  Eigen::VectorXd p(col_l2g->local_size() + col_l2g->num_ghosts());
   p.setZero();
 
   // Assign to dense part of sparse vector
