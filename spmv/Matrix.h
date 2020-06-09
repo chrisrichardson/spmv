@@ -64,7 +64,7 @@ public:
 
 private:
   mutable cl::sycl::queue _q;
-  mkl::sparse::matrixHandle_t A_onemkl;
+  mkl::sparse::matrix_handle_t A_onemkl;
   void mkl_init();
 
   // Storage for Matrix

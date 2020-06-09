@@ -24,20 +24,18 @@ Matrix<T>::Matrix(Eigen::SparseMatrix<T, Eigen::RowMajor> A,
 template <typename T>
 Matrix<T>::~Matrix()
 {
-#ifdef EIGEN_USE_MKL_ALL
-  mkl_sparse_destroy(A_mkl);
-#endif
+  mkl::sparse::release_matrix_handle(&A_onemkl);
 }
 
 //-----------------------------------------------------------------------------
 template <>
 void Matrix<double>::mkl_init()
 {
-  mkl::sparse::matrixInit(&A_onemkl);
+  mkl::sparse::init_matrix_handle(&A_onemkl);
 
-  mkl::sparse::setCSRstructure(A_onemkl, _matA.rows(), _matA.cols(),
-                               mkl::index_base::zero, _matA.outerIndexPtr(),
-                               _matA.innerIndexPtr(), _matA.valuePtr());
+  mkl::sparse::set_csr_data(A_onemkl, _matA.rows(), _matA.cols(),
+                            mkl::index_base::zero, _matA.outerIndexPtr(),
+                            _matA.innerIndexPtr(), _matA.valuePtr());
 }
 //----------------------
 template <>
@@ -45,8 +43,8 @@ Eigen::VectorXd Matrix<double>::operator*(const Eigen::VectorXd& b) const
 {
   Eigen::VectorXd y(_matA.rows());
   mkl::sparse::gemv(_q, mkl::transpose::nontrans, 1.0, A_onemkl,
-                   const_cast<double*>(b.data()), 0.0, y.data());
-  
+                    const_cast<double*>(b.data()), 0.0, y.data());
+
   return y;
 }
 //---------------------
@@ -61,8 +59,8 @@ Eigen::VectorXd Matrix<double>::transpmult(const Eigen::VectorXd& b) const
 }
 //-----------------------------------------------------------------------------
 template <typename T>
-Eigen::Matrix<T, Eigen::Dynamic, 1>
-Matrix<T>::operator*(const Eigen::Matrix<T, Eigen::Dynamic, 1>& b) const
+Eigen::Matrix<T, Eigen::Dynamic, 1> Matrix<T>::
+operator*(const Eigen::Matrix<T, Eigen::Dynamic, 1>& b) const
 {
   return _matA * b;
 }

@@ -9,7 +9,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC ${MPI_LIBRARIES})
 set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "spmv.h")
 set_target_properties(${PROJECT_NAME} PROPERTIES PRIVATE_HEADER "L2GMap.h;Matrix.h;read_petsc.h;cg.h")
 
-target_link_libraries(${PROJECT_NAME} PUBLIC "mkl_sycl;mkl_intel_ilp64;mkl_tbb_thread;mkl_core;sycl;OpenCL;tbb;pthread;dl;m")
+target_link_libraries(${PROJECT_NAME} PUBLIC "mkl_sycl;mkl_intel_ilp64;mkl_sequential;mkl_core;sycl;OpenCL;m")
 
 install(TARGETS ${PROJECT_NAME}
     EXPORT libspmv
