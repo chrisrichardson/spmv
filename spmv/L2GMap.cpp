@@ -180,12 +180,14 @@ std::int32_t L2GMap::global_to_local(std::int64_t i) const
   }
 }
 //-----------------------------------------------------------------------------
-std::int32_t L2GMap::local_size(bool ghosted) const
+std::int32_t L2GMap::local_size() const
 {
-  if (ghosted)
-    return (_ranges[_mpi_rank + 1] - _ranges[_mpi_rank] + _ghosts.size());
-  else
-    return (_ranges[_mpi_rank + 1] - _ranges[_mpi_rank]);
+  return (_ranges[_mpi_rank + 1] - _ranges[_mpi_rank]);
+}
+//-----------------------------------------------------------------------------
+std::int32_t L2GMap::num_ghosts() const
+{
+  return _ghosts.size();
 }
 //-----------------------------------------------------------------------------
 std::int64_t L2GMap::global_size() const { return _ranges.back(); }
