@@ -1,6 +1,8 @@
 // Copyright (C) 2018-2020 Chris Richardson (chris@bpi.cam.ac.uk)
 // SPDX-License-Identifier:    MIT
 
+#include <spmv/cuda_check.h>
+
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <chrono>
@@ -9,8 +11,8 @@
 #include <mpi.h>
 
 #include "CreateA.h"
-#include "L2GMap.h"
-#include "read_petsc.h"
+#include <spmv/L2GMap.h>
+#include <spmv/read_petsc.h>
 
 void restrict_main()
 {
@@ -43,7 +45,7 @@ void restrict_main()
     std::cout << "Creating vector of size " << N << "\n";
 
   // Vector in "column space" with extra space for ghosts at end
-  Eigen::VectorXd psp(l2g->local_size(true));
+  Eigen::VectorXd psp(l2g->local_size() + l2g->num_ghosts());
 
   timer_end = std::chrono::system_clock::now();
   timings["1.VecCreate"] += (timer_end - timer_start);
@@ -67,7 +69,7 @@ void restrict_main()
     timer_end = std::chrono::system_clock::now();
     timings["2.SparseUpdate"] += (timer_end - timer_start);
 
-    Eigen::Map<Eigen::VectorXd> p(psp.data(), l2g->local_size(false));
+    Eigen::Map<Eigen::VectorXd> p(psp.data(), l2g->local_size());
     double pnorm = p.squaredNorm();
     MPI_Allreduce(&pnorm, &pnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 

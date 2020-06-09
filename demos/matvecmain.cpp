@@ -9,9 +9,9 @@
 #include <mpi.h>
 
 #include "CreateA.h"
-#include "L2GMap.h"
-#include "Matrix.h"
-#include "read_petsc.h"
+#include <spmv/L2GMap.h>
+#include <spmv/Matrix.h>
+#include <spmv/read_petsc.h>
 
 void matvec_main()
 {
@@ -26,7 +26,7 @@ void matvec_main()
   auto timer_start = std::chrono::system_clock::now();
 
   // Either create a simple 1D stencil
-  spmv::Matrix A = create_A(MPI_COMM_WORLD, 500000);
+  spmv::Matrix<double> A = create_A(MPI_COMM_WORLD, 500000);
 
   // Or read file created with "-ksp_view_mat binary" option
   //  spmv::Matrix A = spmv::read_petsc_binary(MPI_COMM_WORLD, "A4.dat");
@@ -34,7 +34,7 @@ void matvec_main()
   std::shared_ptr<const spmv::L2GMap> l2g = A.col_map();
 
   // Get local and global sizes
-  std::int64_t M = A.row_map()->local_size(false);
+  std::int64_t M = A.row_map()->local_size();
   std::int64_t N = l2g->global_size();
   Eigen::VectorXd b(M);
 
@@ -47,7 +47,7 @@ void matvec_main()
     std::cout << "Creating vector of size " << N << "\n";
 
   // Vector with extra space for ghosts at end
-  Eigen::VectorXd psp(l2g->local_size(true));
+  Eigen::VectorXd psp(l2g->local_size() + l2g->num_ghosts());
 
   // Set up values in local range
   int r0 = l2g->global_offset();

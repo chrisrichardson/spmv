@@ -1,0 +1,47 @@
+
+set(CMAKE_BUILD_WITH_INSTALL_RPATH ON)
+add_library(${PROJECT_NAME} SHARED L2GMap.cpp Matrix.cpp read_petsc.cpp cg.cpp)
+target_include_directories (${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories (${PROJECT_NAME} INTERFACE $<INSTALL_INTERFACE:include>)
+# Target libraries
+target_link_libraries(${PROJECT_NAME} PUBLIC ${MPI_LIBRARIES})
+
+set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "spmv.h")
+set_target_properties(${PROJECT_NAME} PROPERTIES PRIVATE_HEADER "L2GMap.h;Matrix.h;read_petsc.h;cg.h")
+
+if(BLAS_FOUND)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC EIGEN_USE_MKL_ALL)
+    target_link_libraries(${PROJECT_NAME} PUBLIC ${BLAS_LIBRARIES})
+endif()
+
+
+# in cmake 17 this should be find_package(CUDAToolkit)
+find_package(CUDA)
+if (CUDA_FOUND)
+    enable_language(CUDA)
+    target_sources(${PROJECT_NAME} PRIVATE shuffle_kernel.cu)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC HAVE_CUDA)
+    target_include_directories(${PROJECT_NAME} PUBLIC ${CUDA_INCLUDE_DIRS})
+    target_link_libraries(${PROJECT_NAME} PUBLIC ${CUDA_cusparse_LIBRARY} ${CUDA_cublas_LIBRARY} ${CUDA_LIBRARIES})
+endif()
+
+
+install(TARGETS ${PROJECT_NAME}
+    EXPORT libspmv
+    LIBRARY DESTINATION lib
+    PUBLIC_HEADER DESTINATION include
+    PRIVATE_HEADER DESTINATION include
+ )
+
+# First attempt at installing a config
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file( 
+  spmvConfig.cmake
+    VERSION ${PACKAGE_VERSION}
+    COMPATIBILITY AnyNewerVersion
+    )
+
+install(EXPORT libspmv
+  FILE spmvConfig.cmake
+  NAMESPACE spmv::
+  DESTINATION share/spmv/cmake)

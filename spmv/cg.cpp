@@ -18,7 +18,7 @@
 
 //-----------------------------------------------------------------------------
 std::tuple<Eigen::VectorXd, int>
-spmv::cg(MPI_Comm comm, const spmv::Matrix& A,
+spmv::cg(MPI_Comm comm, const spmv::Matrix<double>& A,
          const Eigen::Ref<const Eigen::VectorXd>& b, int kmax, double rtol)
 {
   int mpi_rank;
@@ -28,10 +28,10 @@ spmv::cg(MPI_Comm comm, const spmv::Matrix& A,
   std::shared_ptr<const spmv::L2GMap> row_l2g = A.row_map();
 
   // Check the row map is unghosted
-  if (row_l2g->local_size(true) != row_l2g->local_size(false))
+  if (row_l2g->num_ghosts() > 0)
     throw std::runtime_error("spmv::cg - Error: A.row_map() has ghost entries");
 
-  int M = row_l2g->local_size(false);
+  int M = row_l2g->local_size();
 
   if (b.rows() != M)
     throw std::runtime_error("spmv::cg - Error: b.rows() != A.rows()");
@@ -39,20 +39,21 @@ spmv::cg(MPI_Comm comm, const spmv::Matrix& A,
   // Residual vector
   Eigen::VectorXd r(M);
   Eigen::VectorXd y(M);
-  Eigen::VectorXd x(col_l2g->local_size(true));
-  Eigen::VectorXd psp(col_l2g->local_size(true));
-  Eigen::Map<Eigen::VectorXd> p(psp.data(), M);
+  Eigen::VectorXd x(col_l2g->local_size() + col_l2g->num_ghosts());
+  Eigen::VectorXd p(col_l2g->local_size() + col_l2g->num_ghosts());
+  p.setZero();
 
   // Assign to dense part of sparse vector
   x.setZero();
   r = b; // b - A * x0
-  p = r;
+  p.head(M) = r;
 
   double rnorm = r.squaredNorm();
   double rnorm0;
   MPI_Allreduce(&rnorm, &rnorm0, 1, MPI_DOUBLE, MPI_SUM, comm);
 
   // Iterations of CG
+  const double rtol2 = rtol * rtol;
   double rnorm_old = rnorm0;
   int k = 0;
   while (k < kmax)
@@ -60,18 +61,17 @@ spmv::cg(MPI_Comm comm, const spmv::Matrix& A,
     ++k;
 
     // y = A.p
-    col_l2g->update(psp.data());
-
-    y = A * psp;
+    col_l2g->update(p.data());
+    y = A * p;
 
     // Calculate alpha = r.r/p.y
-    double pdoty = p.dot(y);
+    double pdoty = p.head(M).dot(y);
     double pdoty_sum;
     MPI_Allreduce(&pdoty, &pdoty_sum, 1, MPI_DOUBLE, MPI_SUM, comm);
     double alpha = rnorm_old / pdoty_sum;
 
     // Update x and r
-    x.head(M) += alpha * p;
+    x.head(M) += alpha * p.head(M);
     r -= alpha * y;
 
     // Update rnorm
@@ -82,13 +82,13 @@ spmv::cg(MPI_Comm comm, const spmv::Matrix& A,
     rnorm_old = rnorm_new;
 
     // Update p
-    p = p * beta + r;
+    p.head(M) = p.head(M) * beta + r;
 
-    if (rnorm_new / rnorm0 < rtol)
+    if (rnorm_new / rnorm0 < rtol2)
       break;
   }
 
-  return {std::move(x), k};
+  return std::make_tuple(std::move(x), k);
 }
 
 #ifdef HAVE_CUDA
@@ -97,7 +97,7 @@ cusparseHandle_t handle = NULL;
 
 //-----------------------------------------------------------------------------
 std::tuple<Eigen::VectorXd, int>
-spmv::cg_cuda(MPI_Comm comm, const spmv::Matrix& A,
+spmv::cg_cuda(MPI_Comm comm, const spmv::Matrix<double>& A,
               const Eigen::Ref<const Eigen::VectorXd>& b, int kmax, double rtol)
 {
   // Initialise cuBLAS
@@ -232,7 +232,7 @@ spmv::cg_cuda(MPI_Comm comm, const spmv::Matrix& A,
     cublas_CHECK(cublasDaxpy(blas_handle, rows, &one, r, 1,
                              thrust::raw_pointer_cast(psp), 1));
 
-    if (rnorm_new / rnorm0 < rtol)
+    if (rnorm_new / rnorm0 < rtol * rtol)
     {
       Eigen::Matrix<double, Eigen::Dynamic, 1> x_eigen(rows);
       cuda_CHECK(cudaMemcpy(x_eigen.data(), x, rows * sizeof(double),

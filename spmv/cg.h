@@ -10,27 +10,27 @@
 namespace spmv
 {
 
+template <typename T>
 class Matrix;
 
-// Solve A.x=b iteratively with Conjugate Gradient
-//
-// Input
-// @param comm MPI comm
-// @param A LHS matrix
-// @param l2g Local-to-global map
-// @param b RHS vector
-// @param max_its Maximum iteration count
-// @param rtol Relative tolerance
-//
-// @return tuple of result and number of iterations
-//
-std::tuple<Eigen::VectorXd, int> cg(MPI_Comm comm, const Matrix& A,
+/// @brief Solve **A.x=b** iteratively with Conjugate Gradient
+///
+/// Input
+/// @param comm MPI communicator
+/// @param A LHS matrix
+/// @param b RHS vector
+/// @param max_its Maximum iteration count
+/// @param rtol Relative tolerance
+///
+/// @return tuple of result **x** and number of iterations
+///
+std::tuple<Eigen::VectorXd, int> cg(MPI_Comm comm, const Matrix<double>& A,
                                     const Eigen::Ref<const Eigen::VectorXd>& b,
                                     int max_its, double rtol);
 
 #ifdef HAVE_CUDA
 std::tuple<Eigen::VectorXd, int>
-cg_cuda(MPI_Comm comm, const spmv::Matrix& A,
+cg_cuda(MPI_Comm comm, const spmv::Matrix<double>& A,
         const Eigen::Ref<const Eigen::VectorXd>& b, int max_its, double rtol);
 #endif
 
