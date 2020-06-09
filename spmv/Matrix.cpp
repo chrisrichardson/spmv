@@ -16,6 +16,8 @@ Matrix<T>::Matrix(Eigen::SparseMatrix<T, Eigen::RowMajor> A,
                   std::shared_ptr<spmv::L2GMap> row_map)
     : _matA(A), _col_map(col_map), _row_map(row_map)
 {
+  sycl::default_selector device_selector;
+  _q = sycl::queue(device_selector);
   mkl_init();
 }
 
@@ -42,10 +44,9 @@ template <>
 Eigen::VectorXd Matrix<double>::operator*(const Eigen::VectorXd& b) const
 {
   Eigen::VectorXd y(_matA.rows());
-  cl::sycl::queue q;
-  mkl::sparse::gemv(q, mkl::transpose::nontrans, 1.0, A_onemkl,
-                    const_cast<double*>(b.data()), 0.0, y.data());
-
+  mkl::sparse::gemv(_q, mkl::transpose::nontrans, 1.0, A_onemkl,
+                   const_cast<double*>(b.data()), 0.0, y.data());
+  
   return y;
 }
 //---------------------
@@ -53,9 +54,9 @@ template <>
 Eigen::VectorXd Matrix<double>::transpmult(const Eigen::VectorXd& b) const
 {
   Eigen::VectorXd y(_matA.cols());
-  // mkl_sparse_s_mv(SPARSE_OPERATION_TRANSPOSE, 1.0, A_mkl, mat_desc, b.data(),
-  //                 0.0, y.data());
-
+  cl::sycl::queue q;
+  mkl::sparse::gemv(q, mkl::transpose::trans, 1.0, A_onemkl,
+                    const_cast<double*>(b.data()), 0.0, y.data());
   return y;
 }
 //-----------------------------------------------------------------------------

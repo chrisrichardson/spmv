@@ -8,10 +8,6 @@
 
 #include <mkl_sycl.hpp>
 
-#ifdef EIGEN_USE_MKL_ALL
-#include <mkl.h>
-#endif
-
 #include <mpi.h>
 
 #pragma once
@@ -67,6 +63,7 @@ public:
                 std::vector<std::int64_t> col_ghosts);
 
 private:
+  mutable cl::sycl::queue _q;
   mkl::sparse::matrixHandle_t A_onemkl;
   void mkl_init();
 
