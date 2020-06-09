@@ -301,7 +301,7 @@ Matrix<T> Matrix<T>::create_matrix(
 }
 
 // Explicit instantiation
-template class spmv::Matrix<float>;
+// template class spmv::Matrix<float>;
 template class spmv::Matrix<double>;
-template class spmv::Matrix<std::complex<float>>;
-template class spmv::Matrix<std::complex<double>>;
+// template class spmv::Matrix<std::complex<float>>;
+// template class spmv::Matrix<std::complex<double>>;
