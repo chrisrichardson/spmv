@@ -18,17 +18,16 @@ Matrix<T>::Matrix(Eigen::SparseMatrix<T, Eigen::RowMajor> A,
 {
   sycl::default_selector device_selector;
   _q = sycl::queue(device_selector);
+  std::cout << "Running on "
+            << _q.get_device().get_info<sycl::info::device::name>() << "\n";
+
   mkl_init();
 }
 
 template <typename T>
 Matrix<T>::~Matrix()
 {
-#ifdef EIGEN_USE_MKL_ALL
-  mkl_sparse_destroy(A_mkl);
-#endif
 }
-
 //-----------------------------------------------------------------------------
 template <>
 void Matrix<double>::mkl_init()
