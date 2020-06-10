@@ -27,14 +27,15 @@ Matrix<T>::Matrix(Eigen::SparseMatrix<T, Eigen::RowMajor> A,
 template <typename T>
 Matrix<T>::~Matrix()
 {
+    mkl::sparse::release_matrix_handle(&A_onemkl);
 }
 //-----------------------------------------------------------------------------
 template <>
 void Matrix<double>::mkl_init()
 {
-  mkl::sparse::matrixInit(&A_onemkl);
+  mkl::sparse::init_matrix_handle(&A_onemkl);
 
-  mkl::sparse::setCSRstructure(A_onemkl, _matA.rows(), _matA.cols(),
+  mkl::sparse::set_csr_data(A_onemkl, _matA.rows(), _matA.cols(),
                                mkl::index_base::zero, _matA.outerIndexPtr(),
                                _matA.innerIndexPtr(), _matA.valuePtr());
 }
