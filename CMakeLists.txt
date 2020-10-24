@@ -21,8 +21,8 @@ find_package(MPI REQUIRED)
 include_directories(${MPI_INCLUDE_PATH})
 
 # Not sure why need to set -O3 and -DNDEBUG as should be set by Release build type
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -DNDEBUG -fsycl -DMKL_ILP64")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -DNDEBUG -fsycl -DMKL_ILP64 -tbb")
 
 add_subdirectory(spmv)
 include_directories (${CMAKE_CURRENT_SOURCE_DIR})
-# add_subdirectory(demos)
+add_subdirectory(demos)
