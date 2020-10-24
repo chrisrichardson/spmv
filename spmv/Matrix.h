@@ -1,14 +1,13 @@
-// Copyright (C) 2020 Chris Richardson (chris@bpi.cam.ac.uk)
+// Copyright (C) 2020 Chris Richardson, Igor Baratta
 // SPDX-License-Identifier:    MIT
 
-#include <Eigen/Dense>
-#include <Eigen/Sparse>
+#include <CL/sycl.hpp>
 #include <memory>
+#include <mkl_sycl.hpp>
+#include <mpi.h>
 #include <vector>
 
-#include <mkl_sycl.hpp>
-
-#include <mpi.h>
+#include "Vector.h"
 
 #pragma once
 
@@ -18,14 +17,15 @@ namespace spmv
 
 class L2GMap;
 
-template <typename T>
+template <typename ScalarType, typename IndType>
 class Matrix
 {
   /// Matrix with row and column maps.
 public:
-  /// This constructor just copies in the data. To build a Matrix from more
-  /// general data, use `Matrix::create_matrix` instead.
-  Matrix(Eigen::SparseMatrix<T, Eigen::RowMajor> A,
+  Matrix(std::array<std::size_t, 2> shape,
+         std::shared_ptr<cl::sycl::buffer<ScalarType, 1>> data,
+         std::shared_ptr<cl::sycl::buffer<IndType, 1>> indptr,
+         std::shared_ptr<cl::sycl::buffer<IndType, 1>> indices,
          std::shared_ptr<spmv::L2GMap> col_map,
          std::shared_ptr<spmv::L2GMap> row_map);
 
@@ -33,12 +33,25 @@ public:
   ~Matrix();
 
   /// MatVec operator for A x
-  Eigen::Matrix<T, Eigen::Dynamic, 1>
-  operator*(const Eigen::Matrix<T, Eigen::Dynamic, 1>& b) const;
+  spmv::Vector<ScalarType> operator*(spmv::Vector<ScalarType>& b) const
+  {
+    std::shared_ptr<cl::sycl::buffer<ScalarType, 1>> y(
+        cl::sycl::range<1>{_shape[0]});
+    oneapi::mkl::sparse::gemv(_q, oneapi::mkl::transpose::nontrans, 1.0,
+                              A_onemkl, b.getLocalData(), 0.0, *y);
+    return spmv::Vector<ScalarType>(y, _row_map);
+  };
 
   /// MatVec operator for A^T x
-  Eigen::Matrix<T, Eigen::Dynamic, 1>
-  transpmult(const Eigen::Matrix<T, Eigen::Dynamic, 1>& b) const;
+  spmv::Vector<ScalarType>
+  transpmult(const cl::sycl::buffer<ScalarType, 1>& b) const
+  {
+    std::shared_ptr<cl::sycl::buffer<ScalarType, 1>> y(
+        cl::sycl::range<1>{_shape[0]});
+    oneapi::mkl::sparse::gemv(_q, oneapi::mkl::transpose::trans, 1.0, A_onemkl,
+                              b.getLocalData(), 0.0, *y);
+    return spmv::Vector<ScalarType>(y, _row_map);
+  };
 
   /// Row mapping (local-to-global). Usually, there will not be ghost rows.
   std::shared_ptr<const L2GMap> row_map() const { return _row_map; }
@@ -46,29 +59,17 @@ public:
   /// Column mapping (local-to-global)
   std::shared_ptr<const L2GMap> col_map() const { return _col_map; }
 
-  /// Access the underlying local sparse matrix
-  Eigen::SparseMatrix<T, Eigen::RowMajor>& mat() { return _matA; }
-  const Eigen::SparseMatrix<T, Eigen::RowMajor>& mat() const { return _matA; }
-
-  /// Create an `spmv::Matrix` from an Eigen::SparseMatrix and row and column
-  /// mappings, such that the resulting matrix has no row ghosts, but only
-  /// column ghosts. This is achieved by sending ghost rows to their owners,
-  /// where they are summed into existing rows. The column ghost mapping will
-  /// also change in this process.
-  static Matrix<T>
-  create_matrix(MPI_Comm comm,
-                const Eigen::SparseMatrix<T, Eigen::RowMajor> mat,
-                std::int64_t nrows_local, std::int64_t ncols_local,
-                std::vector<std::int64_t> row_ghosts,
-                std::vector<std::int64_t> col_ghosts);
-
 private:
-  mutable cl::sycl::queue _q;
-  mkl::sparse::matrix_handle_t A_onemkl;
   void mkl_init();
 
-  // Storage for Matrix
-  Eigen::SparseMatrix<T, Eigen::RowMajor> _matA;
+  mutable cl::sycl::queue _q;
+  oneapi::mkl::sparse::matrix_handle_t A_onemkl;
+
+  std::shared_ptr<cl::sycl::buffer<ScalarType, 1>> _data;
+  std::shared_ptr<cl::sycl::buffer<IndType, 1>> _indptr;
+  std::shared_ptr<cl::sycl::buffer<IndType, 1>> _indices;
+
+  std::array<std::size_t, 2> _shape;
 
   // Column and Row maps: usually _row_map will not have ghosts.
   std::shared_ptr<spmv::L2GMap> _col_map;

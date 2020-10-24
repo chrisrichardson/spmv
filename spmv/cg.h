@@ -2,8 +2,6 @@
 // SPDX-License-Identifier:    MIT
 
 #pragma once
-#include <Eigen/Dense>
-#include <Eigen/Sparse>
 #include <memory>
 #include <mpi.h>
 
@@ -24,8 +22,8 @@ class Matrix;
 ///
 /// @return tuple of result **x** and number of iterations
 ///
-std::tuple<Eigen::VectorXd, int> cg(MPI_Comm comm, const Matrix<double>& A,
-                                    const Eigen::Ref<const Eigen::VectorXd>& b,
-                                    int max_its, double rtol);
+std::tuple<cl::sycl::buffer<double, 1>, int>
+cg(MPI_Comm comm, const Matrix<double>& A,
+   const cl::sycl::buffer<double, 1>& b, int max_its, double rtol);
 
 } // namespace spmv

@@ -1,8 +1,7 @@
 // Copyright (C) 2020 Chris Richardson (chris@bpi.cam.ac.uk)
 // SPDX-License-Identifier:    MIT
 
-#include <Eigen/Dense>
-#include <Eigen/Sparse>
+#include <map>
 #include <mpi.h>
 #include <vector>
 
@@ -73,6 +72,8 @@ public:
 
   /// Access the ghost indices
   const std::vector<std::int64_t>& ghosts() const { return _ghosts; }
+
+  MPI_Comm comm() { return _neighbour_comm; }
 
 private:
   // Ownership ranges for all processes on global comm

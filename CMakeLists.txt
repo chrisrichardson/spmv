@@ -1,5 +1,5 @@
-# Require CMake 3.5
-cmake_minimum_required(VERSION 3.5)
+# Require CMake 3.14
+cmake_minimum_required(VERSION 3.14)
 
 # Choose Release or Debug
 set(CMAKE_BUILD_TYPE Release)
@@ -25,4 +25,4 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -DNDEBUG -fsycl -DMKL_ILP64")
 
 add_subdirectory(spmv)
 include_directories (${CMAKE_CURRENT_SOURCE_DIR})
-add_subdirectory(demos)
+# add_subdirectory(demos)

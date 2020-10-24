@@ -1,12 +1,12 @@
 // Copyright (C) 2020 Chris Richardson (chris@bpi.cam.ac.uk)
 // SPDX-License-Identifier:    MIT
 
-#include <Eigen/Sparse>
 #include <memory>
 #include <mpi.h>
 #include <string>
 
 #include "Matrix.h"
+#include "Vector.h"
 
 #pragma once
 
@@ -20,7 +20,8 @@ class L2GMap;
 /// @param comm MPI Comm
 /// @param filename Filename
 /// @return spmv::Matrix<double> Matrix
-Matrix<double> read_petsc_binary(MPI_Comm comm, std::string filename);
+Matrix<double, std::int32_t> read_petsc_binary(MPI_Comm comm,
+                                               std::string filename);
 
 /// @brief Read a binary PETSc vector file and distribute.
 ///
