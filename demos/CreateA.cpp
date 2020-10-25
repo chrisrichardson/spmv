@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2020 Chris Richardson (chris@bpi.cam.ac.uk)
+// Copyright (C) 2018-2020 Chris Richardson, Igor Baratta
 // SPDX-License-Identifier:    MIT
 
 #include "CreateA.h"
@@ -107,31 +107,21 @@ spmv::Matrix<double> create_A(MPI_Comm comm, int N)
   }
   Alocal.setFromTriplets(vals.begin(), vals.end());
 
-  std::array<std::size_t, 2> shape;
-  shape[0] = M;
-  shape[1] = M + ghosts.size();
-
   // Get indptr buffer
   Aouter = Alocal.outerIndexPtr();
   std::vector<std::int32_t> indptr(A.rows());
   std::memcpy(Aouter, indptr.data(), sizeof(std::int32_t) * indptr.size());
-  auto indptr_buff
-      = std::make_shared<cl::sycl::buffer<std::int32_t, 1>>(indptr);
 
   // Get indices buffer
   Ainner = Alocal.innerIndexPtr();
   std::vector<std::int32_t> indices(A.nonZeros());
   std::memcpy(Ainner, indices.data(), sizeof(std::int32_t) * indices.size());
-  auto indices_buff
-      = std::make_shared<cl::sycl::buffer<std::int32_t, 1>>(indices);
 
   // Get data buffer
   double* Aptr = Alocal.valuePtr();
   std::vector<double> data(A.nonZeros());
   std::memcpy(Aptr, data.data(), sizeof(double) * data.size());
-  auto data_buff = std::make_shared<cl::sycl::buffer<double, 1>>(data);
 
-  return spmv::Matrix<double>(shape, data_buff, indptr_buff, indices_buff,
-                              col_l2g, row_l2g);
+  return spmv::Matrix<double>(data, indptr, indices, col_l2g, row_l2g);
 }
 //-----------------------------------------------------------------------------

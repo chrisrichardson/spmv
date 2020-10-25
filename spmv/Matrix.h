@@ -2,13 +2,13 @@
 // SPDX-License-Identifier:    MIT
 
 #include <CL/sycl.hpp>
+
 #include <memory>
 #include <mkl_sycl.hpp>
 #include <mpi.h>
 #include <vector>
 
-#include <Eigen/Sparse>
-
+#include "L2GMap.h"
 #include "Vector.h"
 
 #pragma once
@@ -22,15 +22,16 @@ class L2GMap;
 template <typename ScalarType>
 class Matrix
 {
-  /// Matrix with row and column maps.
+  /// CSR Matrix with row and column maps.
 public:
-  Matrix(std::array<std::size_t, 2> shape,
-         std::shared_ptr<cl::sycl::buffer<ScalarType, 1>> data,
+  /// Create sparse matrix from buffer (data may be already on device memory)
+  Matrix(std::shared_ptr<cl::sycl::buffer<ScalarType, 1>> data,
          std::shared_ptr<cl::sycl::buffer<std::int32_t, 1>> row_ptr,
          std::shared_ptr<cl::sycl::buffer<std::int32_t, 1>> col_ind,
          std::shared_ptr<spmv::L2GMap> col_map,
          std::shared_ptr<spmv::L2GMap> row_map);
 
+  /// Create sparse matrix from vectors (data is still on the host memory)
   Matrix(std::vector<ScalarType>& data, std::vector<std::int32_t>& row_ptr,
          std::vector<std::int32_t>& col_ind,
          std::shared_ptr<spmv::L2GMap> col_map,
@@ -40,26 +41,14 @@ public:
   ~Matrix();
 
   /// MatVec operator for A x
-  spmv::Vector<ScalarType> operator*(spmv::Vector<ScalarType>& b) const
-  {
-    std::size_t ls = _row_map->local_size() + _row_map->num_ghosts();
-    auto y = std::make_shared<cl::sycl::buffer<ScalarType, 1>>(
-        cl::sycl::range<1>{ls});
+  spmv::Vector<ScalarType> operator*(spmv::Vector<ScalarType>& x) const;
 
-    oneapi::mkl::sparse::gemv(_q, oneapi::mkl::transpose::nontrans, 1.0,
-                              A_onemkl, b.getLocalData(), 0.0, *y);
-    return spmv::Vector<ScalarType>(y, _row_map);
-  };
+  /// MatVec operator for b = A x
+  void mult(spmv::Vector<ScalarType>& x, spmv::Vector<ScalarType>& b) const;
 
-  /// MatVec operator for A^T x
-  spmv::Vector<ScalarType> transpmult(spmv::Vector<ScalarType>& b) const
-  {
-    auto y = std::make_shared<cl::sycl::buffer<ScalarType, 1>>(
-        cl::sycl::range<1>{_shape[0]});
-    oneapi::mkl::sparse::gemv(_q, oneapi::mkl::transpose::trans, 1.0, A_onemkl,
-                              b.getLocalData(), 0.0, *y);
-    return spmv::Vector<ScalarType>(y, _row_map);
-  };
+  /// MatVec operator for b = A^T x
+  void transpmult(spmv::Vector<ScalarType>& x,
+                  spmv::Vector<ScalarType>& b) const;
 
   /// Row mapping (local-to-global). Usually, there will not be ghost rows.
   std::shared_ptr<L2GMap> row_map() const { return _row_map; }
@@ -68,24 +57,24 @@ public:
   std::shared_ptr<L2GMap> col_map() const { return _col_map; }
 
 private:
-  void mkl_init()
-  {
-    oneapi::mkl::sparse::init_matrix_handle(&A_onemkl);
-    oneapi::mkl::sparse::set_csr_data(A_onemkl, _shape[0], _shape[1],
-                                      oneapi::mkl::index_base::zero, *_indptr,
-                                      *_indices, *_data);
-  }
+  void mkl_init();
 
   mutable cl::sycl::queue _q;
   oneapi::mkl::sparse::matrix_handle_t A_onemkl;
 
+  /// CSR format data buffer of the matrix
   std::shared_ptr<cl::sycl::buffer<ScalarType, 1>> _data;
+
+  /// CSR format row pointer buffer of the matrix
   std::shared_ptr<cl::sycl::buffer<std::int32_t, 1>> _indptr;
+
+  /// CSR format column indices buffer of the matrix
   std::shared_ptr<cl::sycl::buffer<std::int32_t, 1>> _indices;
 
+  /// Shape of the local sparse matrix
   std::array<std::size_t, 2> _shape;
 
-  // Column and Row maps: usually _row_map will not have ghosts.
+  ///  Column and Row maps: usually _row_map will not have ghosts.
   std::shared_ptr<spmv::L2GMap> _col_map;
   std::shared_ptr<spmv::L2GMap> _row_map;
 };

@@ -58,8 +58,6 @@ int main(int argc, char** argv)
     std::cout << "Computed Norm: " << norm << std::endl;
     std::cout << "Exact Norm: " << ex_norm * 2 << std::endl;
   }
-  
-  MPI_Finalize();
 
   return 0;
 }
