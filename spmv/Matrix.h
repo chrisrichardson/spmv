@@ -24,14 +24,16 @@ class Matrix
 {
   /// CSR Matrix with row and column maps.
 public:
-  /// Create sparse matrix from buffer (data may be already on device memory)
+  /// Create distributed sparse matrix from buffers and local-to-global maps
+  /// (data might be on the device memory)
   Matrix(std::shared_ptr<cl::sycl::buffer<ScalarType, 1>> data,
          std::shared_ptr<cl::sycl::buffer<std::int32_t, 1>> row_ptr,
          std::shared_ptr<cl::sycl::buffer<std::int32_t, 1>> col_ind,
          std::shared_ptr<spmv::L2GMap> col_map,
          std::shared_ptr<spmv::L2GMap> row_map);
 
-  /// Create sparse matrix from vectors (data is still on the host memory)
+  /// Create distributed sparse matrix from vectors and local-to-global maps
+  /// (data is still on the host memory)
   Matrix(std::vector<ScalarType>& data, std::vector<std::int32_t>& row_ptr,
          std::vector<std::int32_t>& col_ind,
          std::shared_ptr<spmv::L2GMap> col_map,
@@ -55,6 +57,9 @@ public:
 
   /// Column mapping (local-to-global)
   std::shared_ptr<L2GMap> col_map() const { return _col_map; }
+
+  /// Set queue to submit work (indirectly defines the device in each rank)
+  void set_queue(cl::sycl::queue q) { _q = q; }
 
 private:
   void mkl_init();
