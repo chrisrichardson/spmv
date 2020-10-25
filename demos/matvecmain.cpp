@@ -69,8 +69,6 @@ void matvec_main()
   if (mpi_rank == 0)
     std::cout << "Applying matrix " << n_apply << " times\n";
 
-  // Temporary variable
-  Eigen::VectorXd q(M);
   for (int i = 0; i < n_apply; ++i)
   {
     timer_start = std::chrono::system_clock::now();
@@ -79,14 +77,14 @@ void matvec_main()
     timings["2.SparseUpdate"] += (timer_end - timer_start);
 
     timer_start = std::chrono::system_clock::now();
-    b = A * p;
+    auto c = A * p;
     timer_end = std::chrono::system_clock::now();
     timings["3.SpMV"] += (timer_end - timer_start);
 
-    // timer_start = std::chrono::system_clock::now();
-    // p = b;
-    // timer_end = std::chrono::system_clock::now();
-    // timings["4.Copy"] += (timer_end - timer_start);
+    timer_start = std::chrono::system_clock::now();
+    b = c;
+    timer_end = std::chrono::system_clock::now();
+    timings["4.Copy"] += (timer_end - timer_start);
   }
 
   double pnorm = b.norm();

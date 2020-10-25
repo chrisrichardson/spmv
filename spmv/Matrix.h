@@ -26,12 +26,13 @@ class Matrix
 public:
   Matrix(std::array<std::size_t, 2> shape,
          std::shared_ptr<cl::sycl::buffer<ScalarType, 1>> data,
-         std::shared_ptr<cl::sycl::buffer<std::int32_t, 1>> indptr,
-         std::shared_ptr<cl::sycl::buffer<std::int32_t, 1>> indices,
+         std::shared_ptr<cl::sycl::buffer<std::int32_t, 1>> row_ptr,
+         std::shared_ptr<cl::sycl::buffer<std::int32_t, 1>> col_ind,
          std::shared_ptr<spmv::L2GMap> col_map,
          std::shared_ptr<spmv::L2GMap> row_map);
 
-  Matrix(Eigen::SparseMatrix<ScalarType, Eigen::RowMajor> A,
+  Matrix(std::vector<ScalarType>& data, std::vector<std::int32_t>& row_ptr,
+         std::vector<std::int32_t>& col_ind,
          std::shared_ptr<spmv::L2GMap> col_map,
          std::shared_ptr<spmv::L2GMap> row_map);
 
@@ -41,8 +42,10 @@ public:
   /// MatVec operator for A x
   spmv::Vector<ScalarType> operator*(spmv::Vector<ScalarType>& b) const
   {
+    std::size_t ls = _row_map->local_size() + _row_map->num_ghosts();
     auto y = std::make_shared<cl::sycl::buffer<ScalarType, 1>>(
-        cl::sycl::range<1>{_shape[0]});
+        cl::sycl::range<1>{ls});
+
     oneapi::mkl::sparse::gemv(_q, oneapi::mkl::transpose::nontrans, 1.0,
                               A_onemkl, b.getLocalData(), 0.0, *y);
     return spmv::Vector<ScalarType>(y, _row_map);

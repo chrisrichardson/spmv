@@ -30,45 +30,22 @@ Matrix<ScalarType>::Matrix(
 }
 
 template <typename ScalarType>
-Matrix<ScalarType>::Matrix(Eigen::SparseMatrix<ScalarType, Eigen::RowMajor> A,
+Matrix<ScalarType>::Matrix(std::vector<ScalarType>& data,
+                           std::vector<std::int32_t>& row_ptr,
+                           std::vector<std::int32_t>& col_ind,
                            std::shared_ptr<spmv::L2GMap> col_map,
                            std::shared_ptr<spmv::L2GMap> row_map)
+    : _col_map(col_map), _row_map(row_map)
 {
-  _col_map = col_map;
-  _row_map = row_map;
-
-  _shape[0] = A.rows();
-  _shape[1] = A.cols();
-
   sycl::default_selector device_selector;
   _q = sycl::queue(device_selector);
-  std::cout << "Running on "
-            << _q.get_device().get_info<sycl::info::device::name>() << "\n";
 
-  // Get indptr buffer
-  std::int32_t* Aouter = A.outerIndexPtr();
-  std::vector<std::int32_t> indptr(A.rows());
-  std::memcpy(Aouter, indptr.data(), sizeof(std::int32_t) * indptr.size());
-  _indptr = std::make_shared<cl::sycl::buffer<std::int32_t, 1>>(indptr);
-
-  // Get indices buffer
-  std::int32_t* Ainner = A.innerIndexPtr();
-  std::vector<std::int32_t> indices(A.nonZeros());
-  std::memcpy(Ainner, indices.data(), sizeof(std::int32_t) * indices.size());
-  _indices = std::make_shared<cl::sycl::buffer<std::int32_t, 1>>(indices);
-
-  // Get data buffer
-  ScalarType* Aptr = A.valuePtr();
-  std::vector<double> data(A.nonZeros());
-  std::memcpy(Aptr, data.data(), sizeof(ScalarType) * data.size());
-  _data = std::make_shared<cl::sycl::buffer<double, 1>>(data);
-
-  cl::sycl::buffer<double, 1> norm{1};
-  oneapi::mkl::blas::nrm2(_q, A.nonZeros(), *_data, 1, norm);
-
-  auto acc = norm.template get_access<cl::sycl::access::mode::read>();
-  double result = acc[0];
-  std::cout << Aptr[1] << std::endl;
+  _data = std::make_shared<cl::sycl::buffer<ScalarType, 1>>(data);
+  _indptr = std::make_shared<cl::sycl::buffer<std::int32_t, 1>>(row_ptr);
+  _indices = std::make_shared<cl::sycl::buffer<std::int32_t, 1>>(col_ind);
+  
+  _shape[0] = row_map->local_size() + row_map->num_ghosts();
+  _shape[1] = col_map->local_size() + col_map->num_ghosts();
 
   mkl_init();
 }
@@ -79,9 +56,8 @@ Matrix<ScalarType>::~Matrix()
   oneapi::mkl::sparse::release_matrix_handle(&A_onemkl);
 }
 
-
 // Explicit instantiation
-// template class spmv::Matrix<float>;
+template class spmv::Matrix<float>;
 template class spmv::Matrix<double>;
 // template class spmv::Matrix<std::complex<float>>;
 // template class spmv::Matrix<std::complex<double>>;
