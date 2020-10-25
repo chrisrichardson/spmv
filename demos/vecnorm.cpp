@@ -34,7 +34,7 @@ int main(int argc, char** argv)
 
   if (rank == 0)
   {
-    std::cout << std::setprecision(10);
+    std::cout << std::setprecision(10) << std::endl;
     std::cout << "Computed Norm: " << norm << std::endl;
     std::cout << "Exact Norm: " << ex_norm << std::endl;
   }
@@ -58,6 +58,8 @@ int main(int argc, char** argv)
     std::cout << "Computed Norm: " << norm << std::endl;
     std::cout << "Exact Norm: " << ex_norm * 2 << std::endl;
   }
+  
+  MPI_Finalize();
 
   return 0;
 }

@@ -73,7 +73,11 @@ public:
   /// Access the ghost indices
   const std::vector<std::int64_t>& ghosts() const { return _ghosts; }
 
+  /// Return MPI communicator
   MPI_Comm comm() { return _neighbour_comm; }
+
+  /// Return MPI rank
+  std::int32_t rank() { return _mpi_rank; }
 
 private:
   // Ownership ranges for all processes on global comm

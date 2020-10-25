@@ -1,6 +1,8 @@
 // Copyright (C) 2020 Igor Baratta (ia397@cam.ac.uk)
 // SPDX-License-Identifier:    MIT
 
+#pragma once
+
 #include <CL/sycl.hpp>
 #include <memory>
 #include <mkl_sycl.hpp>
@@ -21,9 +23,18 @@ public:
   {
     DeviceSelector device_selector;
     _q = sycl::queue(device_selector);
+
     if (_map->local_size() != _data->get_size())
       std::runtime_error("Size mismatch");
   };
+
+  Vector(std::vector<ScalarType>& vec, std::shared_ptr<spmv::L2GMap> map)
+      : _map(map)
+  {
+    DeviceSelector device_selector;
+    _q = sycl::queue(device_selector);
+    _data = std::make_shared<cl::sycl::buffer<ScalarType, 1>>(vec);
+  }
 
   std::int32_t local_size() const { return _map->local_size(); }
 
@@ -72,6 +83,9 @@ public:
     MPI_Allreduce(&local_sum, &global_sum, 1, data_type, MPI_SUM, comm);
     return global_sum;
   };
+
+  /// Computes the vector 2 norm (Euclidean norm).
+  double norm() { return std::sqrt(this->dot(*this)); }
 
 private:
   std::shared_ptr<cl::sycl::buffer<ScalarType, 1>> _data;

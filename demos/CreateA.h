@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <CL/sycl.hpp>
+
 #include <Eigen/Sparse>
 #include <memory>
 #include <mpi.h>

@@ -1,7 +1,8 @@
 // Copyright (C) 2018-2020 Chris Richardson (chris@bpi.cam.ac.uk)
 // SPDX-License-Identifier:    MIT
 
-#include <Eigen/Dense>
+#include <CL/sycl.hpp>
+
 #include <Eigen/Sparse>
 #include <chrono>
 #include <iostream>
@@ -11,7 +12,8 @@
 #include "CreateA.h"
 #include <spmv/L2GMap.h>
 #include <spmv/Matrix.h>
-#include <spmv/read_petsc.h>
+#include <spmv/Vector.h>
+// #include <spmv/read_petsc.h>
 
 void matvec_main()
 {
@@ -28,18 +30,18 @@ void matvec_main()
   // Either create a simple 1D stencil
   spmv::Matrix<double> A = create_A(MPI_COMM_WORLD, 500000);
 
-  // Or read file created with "-ksp_view_mat binary" option
-  //  spmv::Matrix A = spmv::read_petsc_binary(MPI_COMM_WORLD, "A4.dat");
-
-  std::shared_ptr<const spmv::L2GMap> l2g = A.col_map();
+  std::shared_ptr<spmv::L2GMap> l2g = A.col_map();
 
   // Get local and global sizes
   std::int64_t M = A.row_map()->local_size();
   std::int64_t N = l2g->global_size();
-  Eigen::VectorXd b(M);
+
+  // Create Distributed vector
+  std::vector<double> b_data(M);
+  spmv::Vector<double> b(b_data, l2g);
 
   auto timer_end = std::chrono::system_clock::now();
-  //    timings["0.MatCreate"] += (timer_end - timer_start);
+  timings["0.MatCreate"] += (timer_end - timer_start);
 
   timer_start = std::chrono::system_clock::now();
 
@@ -47,7 +49,7 @@ void matvec_main()
     std::cout << "Creating vector of size " << N << "\n";
 
   // Vector with extra space for ghosts at end
-  Eigen::VectorXd psp(l2g->local_size() + l2g->num_ghosts());
+  std::vector<double> psp(l2g->local_size() + l2g->num_ghosts());
 
   // Set up values in local range
   int r0 = l2g->global_offset();
@@ -56,6 +58,8 @@ void matvec_main()
     double z = (double)(i + r0) / double(N);
     psp[i] = exp(-10 * pow(5 * (z - 0.5), 2.0));
   }
+
+  spmv::Vector<double> p(psp, l2g);
 
   timer_end = std::chrono::system_clock::now();
   timings["1.VecCreate"] += (timer_end - timer_start);
@@ -70,24 +74,22 @@ void matvec_main()
   for (int i = 0; i < n_apply; ++i)
   {
     timer_start = std::chrono::system_clock::now();
-    l2g->update(psp.data());
+    //   l2g->update(psp.data());
     timer_end = std::chrono::system_clock::now();
     timings["2.SparseUpdate"] += (timer_end - timer_start);
 
     timer_start = std::chrono::system_clock::now();
-    q = A * psp;
+    b = A * p;
     timer_end = std::chrono::system_clock::now();
     timings["3.SpMV"] += (timer_end - timer_start);
 
-    timer_start = std::chrono::system_clock::now();
-    psp.head(M) = q;
-    timer_end = std::chrono::system_clock::now();
-    timings["4.Copy"] += (timer_end - timer_start);
+    // timer_start = std::chrono::system_clock::now();
+    // p = b;
+    // timer_end = std::chrono::system_clock::now();
+    // timings["4.Copy"] += (timer_end - timer_start);
   }
 
-  double pnorm = psp.head(M).squaredNorm();
-  double pnorm_sum;
-  MPI_Allreduce(&pnorm, &pnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  double pnorm = b.norm();
 
   if (mpi_rank == 0)
     std::cout << "\nTimings (" << mpi_size
@@ -116,7 +118,7 @@ void matvec_main()
   if (mpi_rank == 0)
   {
     std::cout << "----------------------------\n";
-    std::cout << "norm = " << pnorm_sum << "\n";
+    std::cout << "norm = " << pnorm << "\n";
   }
 }
 
