@@ -26,7 +26,7 @@ public:
   /// @param ghosts Ghost indices, owned by other processes.
   /// Ghosts must be sorted in ascending order.
   L2GMap(MPI_Comm comm, std::int64_t local_size,
-         const std::vector<std::int64_t>& ghosts);
+         const std::vector<std::int64_t>& ghosts = {});
 
   // Destructor destroys neighbour comm
   ~L2GMap();

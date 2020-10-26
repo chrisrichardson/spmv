@@ -23,6 +23,9 @@ public:
   /// Create Distributed Vector using data on host and a local-to-global map
   Vector(std::vector<ScalarType>& vec, std::shared_ptr<spmv::L2GMap> map);
 
+  /// Set queue to submit work (indirectly defines the device in each rank)
+  void set_queue(cl::sycl::queue q) { _q = q; }
+
   std::int32_t local_size() const { return _map->local_size(); }
 
   cl::sycl::buffer<ScalarType, 1>& getLocalData() { return *_data; };

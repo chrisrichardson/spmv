@@ -43,9 +43,6 @@ Matrix<ScalarType>::Matrix(std::vector<ScalarType>& data,
   sycl::default_selector device_selector;
   _q = sycl::queue(device_selector);
 
-  std::cout << "Running on "
-            << _q.get_device().get_info<sycl::info::device::name>() << "\n";
-
   _data = std::make_shared<cl::sycl::buffer<ScalarType, 1>>(data);
   _indptr = std::make_shared<cl::sycl::buffer<std::int32_t, 1>>(row_ptr);
   _indices = std::make_shared<cl::sycl::buffer<std::int32_t, 1>>(col_ind);

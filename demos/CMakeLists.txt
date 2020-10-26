@@ -7,7 +7,7 @@ target_link_libraries(vecnorm LINK_PUBLIC ${PROJECT_NAME})
 add_executable(matvecmain matvecmain.cpp CreateA.cpp)
 target_link_libraries(matvecmain ${PROJECT_NAME})
 
-add_executable(diagonal diagonal.cpp CreateA.cpp)
+add_executable(diagonal diagonal.cpp)
 target_link_libraries(diagonal ${PROJECT_NAME})
 
 # add_executable(cgmain cgmain.cpp)
