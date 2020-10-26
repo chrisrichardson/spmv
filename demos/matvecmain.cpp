@@ -13,7 +13,6 @@
 #include <spmv/L2GMap.h>
 #include <spmv/Matrix.h>
 #include <spmv/Vector.h>
-// #include <spmv/read_petsc.h>
 
 void matvec_main()
 {
@@ -35,10 +34,6 @@ void matvec_main()
   // Get local and global sizes
   std::int64_t M = A.row_map()->local_size();
   std::int64_t N = l2g->global_size();
-
-  // Create Distributed vector
-  std::vector<double> b_data(M);
-  spmv::Vector<double> b(b_data, l2g);
 
   auto timer_end = std::chrono::system_clock::now();
   timings["0.MatCreate"] += (timer_end - timer_start);
@@ -72,22 +67,26 @@ void matvec_main()
   for (int i = 0; i < n_apply; ++i)
   {
     timer_start = std::chrono::system_clock::now();
-    //   l2g->update(psp.data());
+    {
+      auto p_buffer = p.getLocalData();
+      auto pacc = p_buffer.get_access<cl::sycl::access::mode::read>();
+      l2g->update(static_cast<double*>(pacc.get_pointer()));
+    }
     timer_end = std::chrono::system_clock::now();
     timings["2.SparseUpdate"] += (timer_end - timer_start);
 
     timer_start = std::chrono::system_clock::now();
-    auto c = A * p;
+    A.mult(p, p);
     timer_end = std::chrono::system_clock::now();
     timings["3.SpMV"] += (timer_end - timer_start);
 
     timer_start = std::chrono::system_clock::now();
-    b = c;
+    auto c = p;
     timer_end = std::chrono::system_clock::now();
     timings["4.Copy"] += (timer_end - timer_start);
   }
 
-  double pnorm = b.norm();
+  double pnorm = p.norm();
 
   if (mpi_rank == 0)
     std::cout << "\nTimings (" << mpi_size

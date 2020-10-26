@@ -106,21 +106,22 @@ spmv::Matrix<double> create_A(MPI_Comm comm, int N)
     }
   }
   Alocal.setFromTriplets(vals.begin(), vals.end());
+  Alocal.makeCompressed();
 
   // Get indptr buffer
   Aouter = Alocal.outerIndexPtr();
-  std::vector<std::int32_t> indptr(A.rows());
-  std::memcpy(Aouter, indptr.data(), sizeof(std::int32_t) * indptr.size());
+  std::vector<std::int32_t> indptr(A.rows() + 1);
+  std::memcpy(indptr.data(), Aouter, sizeof(std::int32_t) * indptr.size());
 
   // Get indices buffer
   Ainner = Alocal.innerIndexPtr();
   std::vector<std::int32_t> indices(A.nonZeros());
-  std::memcpy(Ainner, indices.data(), sizeof(std::int32_t) * indices.size());
+  std::memcpy(indices.data(), Ainner, sizeof(std::int32_t) * indices.size());
 
   // Get data buffer
   double* Aptr = Alocal.valuePtr();
   std::vector<double> data(A.nonZeros());
-  std::memcpy(Aptr, data.data(), sizeof(double) * data.size());
+  std::memcpy(data.data(), Aptr, sizeof(double) * data.size());
 
   return spmv::Matrix<double>(data, indptr, indices, col_l2g, row_l2g);
 }

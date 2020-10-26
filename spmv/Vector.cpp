@@ -1,6 +1,7 @@
 // Copyright (C) 2020 Igor Baratta (ia397@cam.ac.uk)
 // SPDX-License-Identifier:    MIT
 
+#include <mkl_sycl.hpp>
 #include <numeric>
 
 #include "Vector.h"

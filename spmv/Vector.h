@@ -5,7 +5,6 @@
 
 #include <CL/sycl.hpp>
 #include <memory>
-#include <mkl_sycl.hpp>
 
 #include "L2GMap.h"
 #include "mpi_type.h"

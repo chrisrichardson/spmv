@@ -4,6 +4,8 @@
 
 #include <numeric>
 
+#include "mkl_spblas_sycl.hpp"
+
 #include "Matrix.h"
 #include "mpi_type.h"
 
@@ -40,6 +42,9 @@ Matrix<ScalarType>::Matrix(std::vector<ScalarType>& data,
 {
   sycl::default_selector device_selector;
   _q = sycl::queue(device_selector);
+
+  std::cout << "Running on "
+            << _q.get_device().get_info<sycl::info::device::name>() << "\n";
 
   _data = std::make_shared<cl::sycl::buffer<ScalarType, 1>>(data);
   _indptr = std::make_shared<cl::sycl::buffer<std::int32_t, 1>>(row_ptr);
@@ -92,6 +97,8 @@ void Matrix<ScalarType>::mkl_init()
   oneapi::mkl::sparse::set_csr_data(A_onemkl, _shape[0], _shape[1],
                                     oneapi::mkl::index_base::zero, *_indptr,
                                     *_indices, *_data);
+  oneapi::mkl::sparse::optimize_gemv(_q, oneapi::mkl::transpose::nontrans,
+                                     A_onemkl);
 }
 //----------------------------------------------------------------------------
 // Explicit instantiation

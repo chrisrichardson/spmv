@@ -11,6 +11,9 @@ namespace spmv
 template <typename T>
 class Matrix;
 
+template <typename T>
+class Vector;
+
 /// @brief Solve **A.x=b** iteratively with Conjugate Gradient
 ///
 /// Input
@@ -22,8 +25,7 @@ class Matrix;
 ///
 /// @return tuple of result **x** and number of iterations
 ///
-std::tuple<cl::sycl::buffer<double, 1>, int>
-cg(MPI_Comm comm, const Matrix<double>& A,
-   const cl::sycl::buffer<double, 1>& b, int max_its, double rtol);
+std::tuple<Vector<double>, int> cg(MPI_Comm comm, const Matrix<double>& A,
+                                   Vector<double>& b, int max_its, double rtol);
 
 } // namespace spmv
