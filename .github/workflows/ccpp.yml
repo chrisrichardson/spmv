@@ -5,12 +5,12 @@ on: [push]
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    runs-on: intel/oneapi-basekit
 
     steps:
     - uses: actions/checkout@v2
     - name: Install Dependencies
-      run: sudo apt install -y libmpich-dev libeigen3-dev intel-basekit
+      run: sudo apt install -y libmpich-dev libeigen3-dev
     - name: cmake
       run: cmake .
     - name: make
