@@ -9,8 +9,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Install Eigen3
-      run: sudo apt install -y libmpich-dev libeigen3-dev
+    - name: Install Dependencies
+      run: sudo apt install -y libmpich-dev libeigen3-dev intel-basekit
     - name: cmake
       run: cmake .
     - name: make
