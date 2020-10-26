@@ -21,7 +21,10 @@ jobs:
         sudo apt-get install -y intel-basekit
 
     - name: cmake
-      run: cmake .
+      run: |
+        source /opt/intel/oneapi/setvars.sh
+        export CXX=clang++
+        cmake .
     - name: make
       run: make
     - name: Run with 2 processes
