@@ -22,7 +22,7 @@ jobs:
 
     - name: cmake
       run: |
-        source /opt/intel/oneapi/setvars.sh
+        . /opt/intel/oneapi/setvars.sh
         export CXX=clang++
         cmake .
     - name: make
