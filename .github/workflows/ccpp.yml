@@ -11,7 +11,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Install Dependencies
-      run: sudo apt install -y libeigen3-dev wget gnupg2
+      run: apt update && apt install -y libeigen3-dev
 
     - name: cmake
       run: CXX=clang++ cmake .
