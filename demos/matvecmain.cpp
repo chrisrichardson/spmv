@@ -67,11 +67,7 @@ void matvec_main()
   for (int i = 0; i < n_apply; ++i)
   {
     timer_start = std::chrono::system_clock::now();
-    {
-      auto p_buffer = p.get_local_buffer();
-      auto pacc = p_buffer.get_access<cl::sycl::access::mode::read>();
-      l2g->update(static_cast<double*>(pacc.get_pointer()));
-    }
+    p.update();
     timer_end = std::chrono::system_clock::now();
     timings["2.SparseUpdate"] += (timer_end - timer_start);
 

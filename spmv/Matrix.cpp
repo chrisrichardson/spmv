@@ -22,7 +22,7 @@ Matrix<ScalarType>::Matrix(
     : _data(data), _indptr(indptr), _indices(indices), _col_map(col_map),
       _row_map(row_map)
 {
-  sycl::default_selector device_selector;
+  sycl::cpu_selector device_selector;
   _q = sycl::queue(device_selector);
 
   _shape[0] = row_map->local_size() + row_map->num_ghosts();
@@ -40,7 +40,7 @@ Matrix<ScalarType>::Matrix(std::vector<ScalarType>& data,
                            std::shared_ptr<spmv::L2GMap> row_map)
     : _col_map(col_map), _row_map(row_map)
 {
-  sycl::default_selector device_selector;
+  sycl::cpu_selector device_selector;
   _q = sycl::queue(device_selector);
 
   _data = std::make_shared<cl::sycl::buffer<ScalarType, 1>>(data);
