@@ -8,14 +8,16 @@ jobs:
     runs-on: ubuntu-20.04
     container: intel/oneapi-basekit
 
+    env:
+      CXX: clang++
+      ONE_MKL_DIR: /opt/intel/oneapi/mkl/2021.1-beta09/
+
     steps:
     - uses: actions/checkout@v2
     - name: Install Dependencies
       run: apt update && apt install -y libeigen3-dev
-
     - name: cmake
-      run: CXX=clang++ cmake .
-       
+      run: cmake .
     - name: make
       run: make
     - name: Run with 2 processes

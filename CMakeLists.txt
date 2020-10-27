@@ -20,6 +20,9 @@ set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 find_package(MPI REQUIRED)
 include_directories(${MPI_INCLUDE_PATH})
 
+find_package(BLAS REQUIRED)
+include_directories($ENV{ONE_MKL_DIR})
+
 # Not sure why need to set -O3 and -DNDEBUG as should be set by Release build type
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -DNDEBUG -fsycl -DMKL_ILP64 -tbb")
 
