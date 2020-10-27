@@ -44,7 +44,7 @@ std::tuple<spmv::Vector<double>, int> spmv::cg(MPI_Comm comm,
   auto r = b.copy(); // b - A * x0
   auto p = r.copy();
 
-  double rnorm = r.norm();
+  double rnorm = r.dot(r);
   double rnorm0 = rnorm;
 
   // Iterations of CG
@@ -57,7 +57,7 @@ std::tuple<spmv::Vector<double>, int> spmv::cg(MPI_Comm comm,
 
     // y = A.p
     p.update();
-    y = A * p;
+    A.mult(p, y);
 
     // Calculate alpha = r.r/p.y
     double pdoty = p.dot(y);
@@ -68,14 +68,12 @@ std::tuple<spmv::Vector<double>, int> spmv::cg(MPI_Comm comm,
     r -= y * alpha;
 
     // Update rnorm
-    rnorm = r.norm();
+    rnorm = r.dot(r);
     double beta = rnorm / rnorm_old;
     rnorm_old = rnorm;
 
     // Update p
     p = p * beta + r;
-
-    std::cout << rnorm << std::endl;
 
     if (rnorm / rnorm0 < rtol2)
       break;
