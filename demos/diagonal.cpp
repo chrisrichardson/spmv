@@ -31,7 +31,7 @@ int main(int argc, char** argv)
   // Create local to global map (diagonal matrix, no  ghosts)
   auto map = std::make_shared<spmv::L2GMap>(comm, size);
 
-  // Create data csr matrix
+  // Create diagonal csr matrix data
   std::vector<double> data(size, diag);
   std::vector<std::int32_t> indptr(size + 1, 1.);
   std::iota(indptr.begin(), indptr.end(), 0);

@@ -1,261 +1,280 @@
-// // // Copyright (C) 2020 Chris Richardson (chris@bpi.cam.ac.uk)
-// // // SPDX-License-Identifier:    MIT
+// Copyright (C) 2020 Chris Richardson (chris@bpi.cam.ac.uk)
+// SPDX-License-Identifier:    MIT
 
-// // #include "read_petsc.h"
-// // #include "L2GMap.h"
-// // #include <cassert>
-// // #include <fstream>
-// // #include <iostream>
-// // #include <map>
-// #include <vector>
+#include <CL/sycl.hpp>
 
-// // Divide size into N ~equal chunks
-// std::vector<std::int64_t> owner_ranges(int size, std::int64_t N)
-// {
-//   // Compute number of items per process and remainder
-//   const std::int64_t n = N / size;
-//   const std::int64_t r = N % size;
+#include <Eigen/SparseCore>
+#include <cassert>
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <vector>
 
-//   // Compute local range
-//   std::vector<std::int64_t> ranges;
-//   for (int rank = 0; rank < (size + 1); ++rank)
-//   {
-//     if (rank < r)
-//       ranges.push_back(rank * (n + 1));
-//     else
-//       ranges.push_back(rank * n + r);
-//   }
+#include "L2GMap.h"
+#include "read_petsc.h"
 
-//   return ranges;
-// }
-// // //-----------------------------------------------------------------------------
-// // spmv::Matrix<double> spmv::read_petsc_binary(MPI_Comm comm,
-// //                                              std::string filename)
-// // {
-// //   Eigen::SparseMatrix<double, Eigen::RowMajor> A;
+// Divide size into N ~equal chunks
+std::vector<std::int64_t> owner_ranges(int size, std::int64_t N)
+{
+  // Compute number of items per process and remainder
+  const std::int64_t n = N / size;
+  const std::int64_t r = N % size;
 
-// //   int mpi_rank;
-// //   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-// //   int mpi_size;
-// //   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+  // Compute local range
+  std::vector<std::int64_t> ranges;
+  for (int rank = 0; rank < (size + 1); ++rank)
+  {
+    if (rank < r)
+      ranges.push_back(rank * (n + 1));
+    else
+      ranges.push_back(rank * n + r);
+  }
 
-// //   std::map<std::int32_t, std::int32_t> col_indices;
-// //   std::vector<std::int64_t> row_ranges, col_ranges;
-// //   std::int64_t ncols_local, nrows_local;
+  return ranges;
+}
+//-----------------------------------------------------------------------------
+spmv::Matrix<double> spmv::read_petsc_binary(MPI_Comm comm,
+                                             std::string filename)
+{
+  Eigen::SparseMatrix<double, Eigen::RowMajor> A;
 
-// //   std::ifstream file(filename.c_str(),
-// //                      std::ios::in | std::ios::binary | std::ios::ate);
-// //   if (file.is_open())
-// //   {
-// //     // Get first 4 ints from file
-// //     std::vector<char> memblock(16);
-// //     file.seekg(0, std::ios::beg);
-// //     file.read(memblock.data(), 16);
+  int mpi_rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+  int mpi_size;
+  MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
-// //     char* ptr = memblock.data();
-// //     for (int i = 0; i < 4; ++i)
-// //     {
-// //       std::swap(*ptr, *(ptr + 3));
-// //       std::swap(*(ptr + 1), *(ptr + 2));
-// //       ptr += 4;
-// //     }
+  std::map<std::int32_t, std::int32_t> col_indices;
+  std::vector<std::int64_t> row_ranges, col_ranges;
+  std::int64_t ncols_local, nrows_local;
 
-// //     std::int32_t* int_data = (std::int32_t*)(memblock.data());
-// //     int id = int_data[0];
-// //     if (id != 1211216)
-// //       throw std::runtime_error("Bad signature in PETSc Matrix file");
+  std::ifstream file(filename.c_str(),
+                     std::ios::in | std::ios::binary | std::ios::ate);
+  if (file.is_open())
+  {
+    // Get first 4 ints from file
+    std::vector<char> memblock(16);
+    file.seekg(0, std::ios::beg);
+    file.read(memblock.data(), 16);
 
-// //     int nrows = int_data[1];
-// //     int ncols = int_data[2];
-// //     int nnz_tot = int_data[3];
-// //     row_ranges = owner_ranges(mpi_size, nrows);
-// //     col_ranges = owner_ranges(mpi_size, ncols);
+    char* ptr = memblock.data();
+    for (int i = 0; i < 4; ++i)
+    {
+      std::swap(*ptr, *(ptr + 3));
+      std::swap(*(ptr + 1), *(ptr + 2));
+      ptr += 4;
+    }
 
-// //     if (mpi_rank == 0)
-// //       std::cout << "Read file: " << filename << ": " << nrows << "x" << ncols
-// //                 << " = " << nnz_tot << "\n";
+    std::int32_t* int_data = (std::int32_t*)(memblock.data());
+    int id = int_data[0];
+    if (id != 1211216)
+      throw std::runtime_error("Bad signature in PETSc Matrix file");
 
-// //     nrows_local = row_ranges[mpi_rank + 1] - row_ranges[mpi_rank];
-// //     ncols_local = col_ranges[mpi_rank + 1] - col_ranges[mpi_rank];
+    int nrows = int_data[1];
+    int ncols = int_data[2];
+    int nnz_tot = int_data[3];
+    row_ranges = owner_ranges(mpi_size, nrows);
+    col_ranges = owner_ranges(mpi_size, ncols);
 
-// //     // Reset memory block and read nnz per row for all rows
-// //     memblock.resize(nrows * 4);
-// //     ptr = memblock.data();
-// //     file.read(memblock.data(), nrows * 4);
-// //     std::vector<std::int32_t> nnz(nrows);
-// //     std::int64_t nnz_sum = 0;
-// //     for (int i = 0; i < nrows; ++i)
-// //     {
-// //       std::swap(*ptr, *(ptr + 3));
-// //       std::swap(*(ptr + 1), *(ptr + 2));
-// //       nnz[i] = *((std::int32_t*)ptr);
-// //       nnz_sum += nnz[i];
-// //       ptr += 4;
-// //     }
-// //     assert(nnz_sum == nnz_tot);
+    if (mpi_rank == 0)
+      std::cout << "Read file: " << filename << ": " << nrows << "x" << ncols
+                << " = " << nnz_tot << "\n";
 
-// //     // Get offset and size for data
-// //     std::int64_t nnz_offset = 0;
-// //     std::int64_t nnz_size = 0;
-// //     for (std::int64_t i = 0; i < row_ranges[mpi_rank]; ++i)
-// //       nnz_offset += nnz[i];
-// //     for (std::int64_t i = row_ranges[mpi_rank]; i < row_ranges[mpi_rank + 1];
-// //          ++i)
-// //       nnz_size += nnz[i];
+    nrows_local = row_ranges[mpi_rank + 1] - row_ranges[mpi_rank];
+    ncols_local = col_ranges[mpi_rank + 1] - col_ranges[mpi_rank];
 
-// //     std::streampos value_data_pos
-// //         = file.tellg() + (std::streampos)(nnz_tot * 4 + nnz_offset * 8);
+    // Reset memory block and read nnz per row for all rows
+    memblock.resize(nrows * 4);
+    ptr = memblock.data();
+    file.read(memblock.data(), nrows * 4);
+    std::vector<std::int32_t> nnz(nrows);
+    std::int64_t nnz_sum = 0;
+    for (int i = 0; i < nrows; ++i)
+    {
+      std::swap(*ptr, *(ptr + 3));
+      std::swap(*(ptr + 1), *(ptr + 2));
+      nnz[i] = *((std::int32_t*)ptr);
+      nnz_sum += nnz[i];
+      ptr += 4;
+    }
+    assert(nnz_sum == nnz_tot);
 
-// //     // Read col indices for each row
-// //     memblock.resize(nnz_size * 4);
-// //     ptr = memblock.data();
-// //     file.seekg(nnz_offset * 4, std::ios::cur);
-// //     file.read(memblock.data(), nnz_size * 4);
+    // Get offset and size for data
+    std::int64_t nnz_offset = 0;
+    std::int64_t nnz_size = 0;
+    for (std::int64_t i = 0; i < row_ranges[mpi_rank]; ++i)
+      nnz_offset += nnz[i];
+    for (std::int64_t i = row_ranges[mpi_rank]; i < row_ranges[mpi_rank + 1];
+         ++i)
+      nnz_size += nnz[i];
 
-// //     std::int32_t c = 0;
-// //     for (std::int64_t col = col_ranges[mpi_rank];
-// //          col < col_ranges[mpi_rank + 1]; ++col)
-// //     {
-// //       col_indices.insert({col, c});
-// //       ++c;
-// //     }
+    std::streampos value_data_pos
+        = file.tellg() + (std::streampos)(nnz_tot * 4 + nnz_offset * 8);
 
-// //     // Map other columns
-// //     for (std::int64_t row = row_ranges[mpi_rank];
-// //          row < row_ranges[mpi_rank + 1]; ++row)
-// //     {
-// //       for (std::int64_t j = 0; j < nnz[row]; ++j)
-// //       {
-// //         std::swap(*ptr, *(ptr + 3));
-// //         std::swap(*(ptr + 1), *(ptr + 2));
-// //         col_indices.insert({*((std::int32_t*)ptr), -1});
-// //         ptr += 4;
-// //       }
-// //     }
-// //     // Ensure they are labelled in ascending order
-// //     for (auto& q : col_indices)
-// //       if (q.second == -1)
-// //       {
-// //         q.second = c;
-// //         ++c;
-// //       }
+    // Read col indices for each row
+    memblock.resize(nnz_size * 4);
+    ptr = memblock.data();
+    file.seekg(nnz_offset * 4, std::ios::cur);
+    file.read(memblock.data(), nnz_size * 4);
 
-// //     A.resize(nrows_local, col_indices.size());
+    std::int32_t c = 0;
+    for (std::int64_t col = col_ranges[mpi_rank];
+         col < col_ranges[mpi_rank + 1]; ++col)
+    {
+      col_indices.insert({col, c});
+      ++c;
+    }
 
-// //     // Read values
-// //     std::vector<char> valuedata(nnz_size * 8);
-// //     file.seekg(value_data_pos, std::ios::beg);
-// //     file.read(valuedata.data(), nnz_size * 8);
-// //     file.close();
+    // Map other columns
+    for (std::int64_t row = row_ranges[mpi_rank];
+         row < row_ranges[mpi_rank + 1]; ++row)
+    {
+      for (std::int64_t j = 0; j < nnz[row]; ++j)
+      {
+        std::swap(*ptr, *(ptr + 3));
+        std::swap(*(ptr + 1), *(ptr + 2));
+        col_indices.insert({*((std::int32_t*)ptr), -1});
+        ptr += 4;
+      }
+    }
+    // Ensure they are labelled in ascending order
+    for (auto& q : col_indices)
+      if (q.second == -1)
+      {
+        q.second = c;
+        ++c;
+      }
 
-// //     // Pointer to values
-// //     char* vptr = valuedata.data();
-// //     ptr = memblock.data();
-// //     for (std::int64_t row = row_ranges[mpi_rank];
-// //          row < row_ranges[mpi_rank + 1]; ++row)
-// //     {
-// //       for (std::int64_t j = 0; j < nnz[row]; ++j)
-// //       {
-// //         std::swap(*vptr, *(vptr + 7));
-// //         std::swap(*(vptr + 1), *(vptr + 6));
-// //         std::swap(*(vptr + 2), *(vptr + 5));
-// //         std::swap(*(vptr + 3), *(vptr + 4));
-// //         double val = *((double*)vptr);
-// //         vptr += 8;
+    A.resize(nrows_local, col_indices.size());
 
-// //         // Look up column local index
-// //         std::int32_t col = col_indices[*((std::int32_t*)ptr)];
-// //         ptr += 4;
+    // Read values
+    std::vector<char> valuedata(nnz_size * 8);
+    file.seekg(value_data_pos, std::ios::beg);
+    file.read(valuedata.data(), nnz_size * 8);
+    file.close();
 
-// //         A.insert(row - row_ranges[mpi_rank], col) = val;
-// //       }
-// //     }
-// //   }
-// //   else
-// //     throw std::runtime_error("Could not open file");
+    // Pointer to values
+    char* vptr = valuedata.data();
+    ptr = memblock.data();
+    for (std::int64_t row = row_ranges[mpi_rank];
+         row < row_ranges[mpi_rank + 1]; ++row)
+    {
+      for (std::int64_t j = 0; j < nnz[row]; ++j)
+      {
+        std::swap(*vptr, *(vptr + 7));
+        std::swap(*(vptr + 1), *(vptr + 6));
+        std::swap(*(vptr + 2), *(vptr + 5));
+        std::swap(*(vptr + 3), *(vptr + 4));
+        double val = *((double*)vptr);
+        vptr += 8;
 
-// //   A.makeCompressed();
+        // Look up column local index
+        std::int32_t col = col_indices[*((std::int32_t*)ptr)];
+        ptr += 4;
 
-// //   std::vector<std::int64_t> ghosts(col_indices.size() - ncols_local);
-// //   for (auto& q : col_indices)
-// //     if (q.first < col_ranges[mpi_rank] or q.first >= col_ranges[mpi_rank + 1])
-// //       ghosts[q.second - ncols_local] = q.first;
+        A.insert(row - row_ranges[mpi_rank], col) = val;
+      }
+    }
+  }
+  else
+    throw std::runtime_error("Could not open file");
 
-// //   auto col_map = std::make_shared<spmv::L2GMap>(comm, ncols_local, ghosts);
-// //   auto row_map = std::make_shared<spmv::L2GMap>(comm, nrows_local,
-// //                                                 std::vector<std::int64_t>());
+  A.makeCompressed();
 
-// //   return spmv::Matrix<double>(A, col_map, row_map);
-// // }
-// // //-----------------------------------------------------------------------------
-// // Eigen::VectorXd spmv::read_petsc_binary_vector(MPI_Comm comm,
-// //                                                std::string filename)
-// // {
-// //   Eigen::VectorXd vec;
+  std::vector<std::int64_t> ghosts(col_indices.size() - ncols_local);
+  for (auto& q : col_indices)
+    if (q.first < col_ranges[mpi_rank] or q.first >= col_ranges[mpi_rank + 1])
+      ghosts[q.second - ncols_local] = q.first;
 
-// //   int mpi_rank;
-// //   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-// //   int mpi_size;
-// //   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+  auto col_map = std::make_shared<spmv::L2GMap>(comm, ncols_local, ghosts);
+  auto row_map = std::make_shared<spmv::L2GMap>(comm, nrows_local);
 
-// //   std::ifstream file(filename.c_str(),
-// //                      std::ios::in | std::ios::binary | std::ios::ate);
-// //   if (file.is_open())
-// //   {
-// //     // Get first 2 ints from file
-// //     std::vector<char> memblock(8);
-// //     file.seekg(0, std::ios::beg);
-// //     file.read(memblock.data(), 8);
+  // Get indptr buffer
+  std::int32_t* Aouter = A.outerIndexPtr();
+  std::vector<std::int32_t> indptr(A.rows() + 1);
+  std::memcpy(indptr.data(), Aouter, sizeof(std::int32_t) * indptr.size());
 
-// //     char* ptr = memblock.data();
-// //     for (int i = 0; i < 2; ++i)
-// //     {
-// //       std::swap(*ptr, *(ptr + 3));
-// //       std::swap(*(ptr + 1), *(ptr + 2));
-// //       ptr += 4;
-// //     }
+  // Get indices buffer
+  std::int32_t* Ainner = A.innerIndexPtr();
+  std::vector<std::int32_t> indices(A.nonZeros());
+  std::memcpy(indices.data(), Ainner, sizeof(std::int32_t) * indices.size());
 
-// //     std::int32_t* int_data = (std::int32_t*)(memblock.data());
-// //     int id = int_data[0];
-// //     if (id != 1211214)
-// //       throw std::runtime_error("Bad signature in PETSc Vector file");
+  // Get data buffer
+  double* Aptr = A.valuePtr();
+  std::vector<double> data(A.nonZeros());
+  std::memcpy(data.data(), Aptr, sizeof(double) * data.size());
 
-// //     int nrows = int_data[1];
-// //     std::vector<std::int64_t> ranges = owner_ranges(mpi_size, nrows);
+  return spmv::Matrix<double>(data, indptr, indices, col_map, row_map);
+}
+//-----------------------------------------------------------------------------
+std::vector<double> spmv::read_petsc_binary_vector(MPI_Comm comm,
+                                               std::string filename)
+{
+  std::vector<double> vec;
 
-// //     if (mpi_rank == 0)
-// //       std::cout << "Read vector file: " << filename << ": " << nrows << "\n";
+  int mpi_rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+  int mpi_size;
+  MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
-// //     std::int64_t nrows_local = ranges[mpi_rank + 1] - ranges[mpi_rank];
+  std::ifstream file(filename.c_str(),
+                     std::ios::in | std::ios::binary | std::ios::ate);
+  if (file.is_open())
+  {
+    // Get first 2 ints from file
+    std::vector<char> memblock(8);
+    file.seekg(0, std::ios::beg);
+    file.read(memblock.data(), 8);
 
-// //     vec.resize(nrows_local);
+    char* ptr = memblock.data();
+    for (int i = 0; i < 2; ++i)
+    {
+      std::swap(*ptr, *(ptr + 3));
+      std::swap(*(ptr + 1), *(ptr + 2));
+      ptr += 4;
+    }
 
-// //     std::streampos value_data_pos
-// //         = file.tellg() + (std::streampos)(ranges[mpi_rank] * 8);
+    std::int32_t* int_data = (std::int32_t*)(memblock.data());
+    int id = int_data[0];
+    if (id != 1211214)
+      throw std::runtime_error("Bad signature in PETSc Vector file");
 
-// //     // Read values
-// //     std::vector<char> valuedata(nrows_local * 8);
-// //     file.seekg(value_data_pos, std::ios::beg);
-// //     file.read(valuedata.data(), nrows_local * 8);
-// //     file.close();
+    int nrows = int_data[1];
+    std::vector<std::int64_t> ranges = owner_ranges(mpi_size, nrows);
 
-// //     // Pointer to values
-// //     char* vptr = valuedata.data();
+    if (mpi_rank == 0)
+      std::cout << "Read vector file: " << filename << ": " << nrows << "\n";
 
-// //     for (std::int64_t row = ranges[mpi_rank]; row < ranges[mpi_rank + 1]; ++row)
-// //     {
-// //       std::swap(*vptr, *(vptr + 7));
-// //       std::swap(*(vptr + 1), *(vptr + 6));
-// //       std::swap(*(vptr + 2), *(vptr + 5));
-// //       std::swap(*(vptr + 3), *(vptr + 4));
-// //       double val = *((double*)vptr);
-// //       vptr += 8;
-// //       vec[row - ranges[mpi_rank]] = val;
-// //     }
-// //   }
-// //   else
-// //     throw std::runtime_error("Could not open file");
+    std::int64_t nrows_local = ranges[mpi_rank + 1] - ranges[mpi_rank];
 
-// //   return vec;
-// // }
-// // //-----------------------------------------------------------------------------
+    vec.resize(nrows_local);
+
+    std::streampos value_data_pos
+        = file.tellg() + (std::streampos)(ranges[mpi_rank] * 8);
+
+    // Read values
+    std::vector<char> valuedata(nrows_local * 8);
+    file.seekg(value_data_pos, std::ios::beg);
+    file.read(valuedata.data(), nrows_local * 8);
+    file.close();
+
+    // Pointer to values
+    char* vptr = valuedata.data();
+
+    for (std::int64_t row = ranges[mpi_rank]; row < ranges[mpi_rank + 1];
+    ++row)
+    {
+      std::swap(*vptr, *(vptr + 7));
+      std::swap(*(vptr + 1), *(vptr + 6));
+      std::swap(*(vptr + 2), *(vptr + 5));
+      std::swap(*(vptr + 3), *(vptr + 4));
+      double val = *((double*)vptr);
+      vptr += 8;
+      vec[row - ranges[mpi_rank]] = val;
+    }
+  }
+  else
+    throw std::runtime_error("Could not open file");
+
+  return vec;
+}
+//-----------------------------------------------------------------------------

@@ -20,8 +20,7 @@ class L2GMap;
 /// @param comm MPI Comm
 /// @param filename Filename
 /// @return spmv::Matrix<double> Matrix
-Matrix<double, std::int32_t> read_petsc_binary(MPI_Comm comm,
-                                               std::string filename);
+Matrix<double> read_petsc_binary(MPI_Comm comm, std::string filename);
 
 /// @brief Read a binary PETSc vector file and distribute.
 ///
@@ -29,5 +28,6 @@ Matrix<double, std::int32_t> read_petsc_binary(MPI_Comm comm,
 /// @param comm MPI Communicator
 /// @param filename Filename
 /// @return Vector of values
-Eigen::VectorXd read_petsc_binary_vector(MPI_Comm comm, std::string filename);
+std::vector<double> read_petsc_binary_vector(MPI_Comm comm, std::string filename);
+
 } // namespace spmv
