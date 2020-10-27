@@ -15,7 +15,9 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Install Dependencies
-      run: apt update && apt install -y libeigen3-dev
+      run: |
+        apt update && apt install -y libeigen3-dev
+        ln -s /usr/include/eigen3/Eigen /usr/include/Eigen
     - name: cmake
       run: cmake .
     - name: make
