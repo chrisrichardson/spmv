@@ -1,5 +1,6 @@
 // Copyright (C) 2018-2020 Chris Richardson (chris@bpi.cam.ac.uk)
 // SPDX-License-Identifier:    MIT
+#include <CL/sycl.hpp>
 
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
@@ -34,12 +35,15 @@ int cg_main(int argc, char** argv)
   else
     throw std::runtime_error("Use with filename");
 
-  auto A
-      = spmv::read_petsc_binary(MPI_COMM_WORLD, "petsc_mat" + argv1 + ".dat");
-  std::shared_ptr<const spmv::L2GMap> l2g = A.col_map();
+  auto A = spmv::read_petsc_binary(MPI_COMM_WORLD, "petsc_mat_" + argv1);
+  std::shared_ptr<spmv::L2GMap> l2g = A.col_map();
 
-  auto b = spmv::read_petsc_binary_vector(MPI_COMM_WORLD,
-                                          "petsc_vec" + argv1 + ".dat");
+  auto b_data
+      = spmv::read_petsc_binary_vector(MPI_COMM_WORLD, "petsc_vec_" + argv1);
+  std::int32_t ls = l2g->local_size() + l2g->num_ghosts();
+  b_data.resize(ls);
+  spmv::Vector<double> b(b_data, l2g);
+
   // Get local and global sizes
   std::int64_t N = l2g->global_size();
 
@@ -61,21 +65,17 @@ int cg_main(int argc, char** argv)
   MPI_Pcontrol(0);
 
   // Get norm on local part of vector
-  double xnorm = x.head(l2g->local_size()).squaredNorm();
-  double xnorm_sum;
-  MPI_Allreduce(&xnorm, &xnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  double xnorm = x.norm();
 
   // Test result
-  l2g->update(x.data());
-  Eigen::VectorXd r = A * x - b;
-  double rnorm = r.squaredNorm();
-  double rnorm_sum;
-  MPI_Allreduce(&rnorm, &rnorm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  x.update();
+  auto r = A * x - b;
+  double rnom = r.norm();
 
   if (mpi_rank == 0)
   {
-    std::cout << "r.norm = " << std::sqrt(rnorm_sum) << "\n";
-    std::cout << "x.norm = " << std::sqrt(xnorm_sum) << " in " << num_its
+    std::cout << "r.norm = " << std::sqrt(rnom) << "\n";
+    std::cout << "x.norm = " << std::sqrt(xnorm) << " in " << num_its
               << " iterations\n";
     std::cout << "\nTimings (" << mpi_size
               << ")\n----------------------------\n";

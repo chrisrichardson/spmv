@@ -58,7 +58,7 @@ void Matrix<ScalarType>::mult(spmv::Vector<ScalarType>& x,
                               spmv::Vector<ScalarType>& b) const
 {
   oneapi::mkl::sparse::gemv(_q, oneapi::mkl::transpose::nontrans, 1.0, A_onemkl,
-                            x.getLocalData(), 0.0, b.getLocalData());
+                            x.get_local_buffer(), 0.0, b.get_local_buffer());
 };
 //-----------------------------------------------------------------------------
 template <typename ScalarType>
@@ -66,7 +66,7 @@ void Matrix<ScalarType>::transpmult(spmv::Vector<ScalarType>& x,
                                     spmv::Vector<ScalarType>& b) const
 {
   oneapi::mkl::sparse::gemv(_q, oneapi::mkl::transpose::trans, 1.0, A_onemkl,
-                            x.getLocalData(), 0.0, b.getLocalData());
+                            x.get_local_buffer(), 0.0, b.get_local_buffer());
 };
 //-----------------------------------------------------------------------------
 template <typename ScalarType>

@@ -68,7 +68,7 @@ void matvec_main()
   {
     timer_start = std::chrono::system_clock::now();
     {
-      auto p_buffer = p.getLocalData();
+      auto p_buffer = p.get_local_buffer();
       auto pacc = p_buffer.get_access<cl::sycl::access::mode::read>();
       l2g->update(static_cast<double*>(pacc.get_pointer()));
     }

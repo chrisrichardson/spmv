@@ -46,7 +46,7 @@ int main(int argc, char** argv)
   spmv::Vector<double> b(b_data, map);
 
   if (mpi_rank == 0)
-    std::cout << "Applying matrix " << n_apply << " times\n";
+    std::cout << "Applying diagonal matrix to vector " << n_apply << " times\n";
 
   std::vector<double> c_data(size, 0.0);
   spmv::Vector<double> c(c_data, map);

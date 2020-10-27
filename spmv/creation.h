@@ -2,6 +2,7 @@
 // SPDX-License-Identifier:    MIT
 
 #include <CL/sycl.hpp>
+#include <Eigen/SparseCore>
 
 #include "Matrix.h"
 

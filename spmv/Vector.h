@@ -16,7 +16,7 @@ class Vector
 {
 public:
   /// Create Distributed Vector using data buffers and local-to-global map (data
-  /// might be on device memory)
+  /// might be already on device memory)
   Vector(std::shared_ptr<cl::sycl::buffer<ScalarType, 1>> data,
          std::shared_ptr<spmv::L2GMap> map);
 
@@ -28,21 +28,45 @@ public:
 
   std::int32_t local_size() const { return _map->local_size(); }
 
-  cl::sycl::buffer<ScalarType, 1>& getLocalData() { return *_data; };
+  cl::sycl::buffer<ScalarType, 1>& get_local_buffer() { return *_data; };
 
   /// Computes the product of the vector by a scalar.
   Vector& operator*=(ScalarType alpha);
 
-  Vector& operator+=(Vector& other);
+  Vector& operator+=(Vector<ScalarType>& other);
+  Vector& operator+=(Vector<ScalarType>&& other);
+  Vector& operator-=(Vector<ScalarType>& other);
+  Vector& operator-=(Vector<ScalarType>&& other);
 
-  Vector& operator-=(Vector& other);
+  /// Computes the product of the vector by a scalar.
+  Vector operator*(ScalarType alpha) const;
 
-  Vector& operator+(Vector& other);
+  /// Applies binary sum operator to each element of tow Vectors (a = b + c)
+  Vector operator+(Vector<ScalarType>& other) const;
 
-  double dot(spmv::Vector<ScalarType>& y) const;
+  /// Applies binary sum operator to each element of tow Vectors (a = b + c)
+  Vector operator+(Vector<ScalarType>&& other) const;
+
+  /// Applies substraction operator to each element of tow Vectors (a = b - c)
+  Vector operator-(Vector<ScalarType>& other) const;
+
+  /// Creates a new vector of the same type and dimension as this.
+  Vector duplicate() const;
+
+  /// Creates a new vector and copy the content of the current vector.
+  Vector copy() const;
+
+  /// Sets all elements of this vector to zero.
+  void set_zero();
+
+  /// Computes the dot product.
+  double dot(spmv::Vector<ScalarType>& y);
 
   /// Computes the vector 2 norm (Euclidean norm).
   double norm() { return std::sqrt(this->dot(*this)); }
+
+  /// Updates ghosts values, from global representation to local.
+  void update();
 
 private:
   std::shared_ptr<cl::sycl::buffer<ScalarType, 1>> _data;

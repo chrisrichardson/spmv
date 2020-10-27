@@ -29,7 +29,7 @@ int main(int argc, char** argv)
   auto data = std::make_shared<cl::sycl::buffer<double, 1>>(v);
 
   spmv::Vector<double> vec(data, map);
-  double norm = std::sqrt(vec.dot(vec));
+  double norm = vec.norm();
   double ex_norm = std::sqrt((double)map->global_size());
 
   if (rank == 0)
@@ -41,7 +41,7 @@ int main(int argc, char** argv)
   assert(fabs(norm - ex_norm) < 1e-5);
 
   vec += vec;
-  norm = std::sqrt(vec.dot(vec));
+  norm = vec.norm();
   if (rank == 0)
   {
     std::cout << std::endl;
@@ -49,14 +49,14 @@ int main(int argc, char** argv)
     std::cout << "Exact Norm: " << ex_norm * 2 << std::endl;
   }
 
-  spmv::Vector<double> vec2 = vec + vec;
+  spmv::Vector<double> vec2 = vec + (vec * 2.);
   vec2 *= 0.5;
-  norm = std::sqrt(vec.dot(vec));
+  norm = vec2.norm();
   if (rank == 0)
   {
     std::cout << std::endl;
     std::cout << "Computed Norm: " << norm << std::endl;
-    std::cout << "Exact Norm: " << ex_norm * 2 << std::endl;
+    std::cout << "Exact Norm: " << 3 * ex_norm << std::endl;
   }
 
   return 0;
