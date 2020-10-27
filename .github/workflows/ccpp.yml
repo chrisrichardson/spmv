@@ -6,26 +6,17 @@ jobs:
   build:
 
     runs-on: ubuntu-20.04
+    container: intel/oneapi-basekit
 
     steps:
     - uses: actions/checkout@v2
     - name: Install Dependencies
-      run: |
-        sudo apt install -y libmpich-dev libeigen3-dev wget gnupg2
-        wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
-        sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
-        rm GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
-        echo "deb https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
-        sudo add-apt-repository "deb https://apt.repos.intel.com/oneapi all main"
-        sudo apt-get update
-        sudo apt-get install -y intel-basekit
+      run: sudo apt install -y libeigen3-dev wget gnupg2
 
     - name: cmake
-      run: |
-        . /opt/intel/oneapi/setvars.sh
-        export CXX=clang++
-        cmake .
+      run: CXX=clang++ cmake .
+       
     - name: make
       run: make
     - name: Run with 2 processes
-      run: ./demos/matvecmain && OMP_NUM_THREADS=1 mpirun -n 2 ./demos/matvecmain
+      run: ./demos/matvecmain && mpirun -n 2 ./demos/matvecmain

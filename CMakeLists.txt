@@ -1,5 +1,5 @@
-# Require CMake 3.14
-cmake_minimum_required(VERSION 3.14)
+# Require CMake 3.10
+cmake_minimum_required(VERSION 3.10)
 
 # Choose Release or Debug
 set(CMAKE_BUILD_TYPE Release)
