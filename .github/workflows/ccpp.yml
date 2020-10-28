@@ -19,8 +19,10 @@ jobs:
         apt update && apt install -y libeigen3-dev
         ln -s /usr/include/eigen3/Eigen /usr/include/Eigen
     - name: cmake
-      run: cmake .
+      run: echo $ONE_MKL_DIR && cmake .
     - name: make
       run: make
     - name: Run with 2 processes
-      run: ./demos/matvecmain && mpirun -n 2 ./demos/matvecmain
+      run: |
+          ./demos/matvecmain && mpirun -n 2 ./demos/matvecmain
+          ./demos/vecnorm && mpirun -n 2 ./demos/vecnorm

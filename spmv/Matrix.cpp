@@ -4,7 +4,7 @@
 
 #include <numeric>
 
-#include "mkl_spblas_sycl.hpp"
+#include "mkl_sycl.hpp"
 
 #include "Matrix.h"
 #include "mpi_type.h"
