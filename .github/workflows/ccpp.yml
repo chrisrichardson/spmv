@@ -10,7 +10,7 @@ jobs:
 
     env:
       CXX: clang++
-      ONE_MKL_DIR: /opt/intel/oneapi/mkl/2021.1-beta09/
+      ONE_MKL_DIR: /opt/intel/oneapi/mkl/2021.1-beta10/
 
     steps:
     - uses: actions/checkout@v2
