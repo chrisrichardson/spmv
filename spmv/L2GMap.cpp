@@ -131,9 +131,13 @@ void L2GMap::update(T* vec_data) const
 
   // Get data from local indices to send to other processes, landing in their
   // ghost region
+
   std::vector<T> databuf(num_indices);
-  for (int i = 0; i < num_indices; ++i)
-    databuf[i] = vec_data[_indexbuf[i]];
+//  for (int i = 0; i < num_indices; ++i)
+//    databuf[i] = vec_data[_indexbuf[i]];
+  std::transform(
+      std::begin(_indexbuf), std::end(_indexbuf), std::begin(databuf),
+      [vec_data](auto i) { return vec_data[i]; });
 
   // Send actual values - NB meaning of _send and _recv count/offset is
   // reversed
