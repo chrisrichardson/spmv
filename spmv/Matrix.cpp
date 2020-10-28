@@ -4,7 +4,7 @@
 
 #include <numeric>
 
-#include "mkl_sycl.hpp"
+#include "oneapi/mkl.hpp"
 
 #include "Matrix.h"
 #include "mpi_type.h"

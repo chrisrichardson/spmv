@@ -4,8 +4,8 @@
 #include <CL/sycl.hpp>
 
 #include <memory>
-#include <mkl_sycl.hpp>
 #include <mpi.h>
+#include <oneapi/mkl.hpp>
 #include <vector>
 
 #include "L2GMap.h"

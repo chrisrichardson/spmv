@@ -2,7 +2,6 @@
 // SPDX-License-Identifier:    MIT
 
 #include <CL/sycl.hpp>
-#include <mkl_sycl.hpp>
 
 #include <mpi.h>
 #include <numeric>
