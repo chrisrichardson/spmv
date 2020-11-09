@@ -12,9 +12,6 @@ target_link_libraries(diagonal ${PROJECT_NAME})
 add_executable(cgmain cgmain.cpp)
 target_link_libraries(cgmain LINK_PUBLIC ${PROJECT_NAME})
 
-add_executable(restrictmain restrictmain.cpp)
-target_link_libraries(restrictmain ${PROJECT_NAME})
-
 # Copy files matrix and vector files to binary dir
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/petsc_mat_poisson
      DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
