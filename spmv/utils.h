@@ -1,8 +1,8 @@
 // Copyright (C) 2020 Igor Baratta (ia397@cam.ac.uk)
 // SPDX-License-Identifier:    MIT
 
-#include <algorithm>
 #include <cstdint>
+#include <functional>
 #include <numeric>
 #include <vector>
 
@@ -54,7 +54,11 @@ coo_to_csr(const std::int32_t nrows, const std::int32_t ncols,
   for (std::int32_t i = 0; i < nnz; i++)
     nnz_row[coo_row[i]]++;
 
-  std::exclusive_scan(nnz_row.begin(), nnz_row.end(), indptr.begin(), 0);
+  std::partial_sum(nnz_row.begin(), nnz_row.end(), indptr.begin() + 1,
+                   std::plus<int>());
+  // std::exclusive_scan(nnz_row.begin(), nnz_row.end(), indptr.begin(), 0);
+  
+  indptr[0] = 0;
   indptr[nrows] = nnz;
 
   std::fill(nnz_row.begin(), nnz_row.end(), 0);
