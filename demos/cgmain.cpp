@@ -2,8 +2,6 @@
 // SPDX-License-Identifier:    MIT
 #include <CL/sycl.hpp>
 
-#include <Eigen/Dense>
-#include <Eigen/Sparse>
 #include <chrono>
 #include <iostream>
 #include <memory>

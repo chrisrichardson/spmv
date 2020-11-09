@@ -3,7 +3,6 @@
 
 #include <CL/sycl.hpp>
 
-#include <Eigen/SparseCore>
 #include <cassert>
 #include <fstream>
 #include <iostream>
@@ -12,31 +11,16 @@
 
 #include "L2GMap.h"
 #include "read_petsc.h"
+#include "utils.h"
 
-// Divide size into N ~equal chunks
-std::vector<std::int64_t> owner_ranges(int size, std::int64_t N)
-{
-  // Compute number of items per process and remainder
-  const std::int64_t n = N / size;
-  const std::int64_t r = N % size;
-
-  // Compute local range
-  std::vector<std::int64_t> ranges;
-  for (int rank = 0; rank < (size + 1); ++rank)
-  {
-    if (rank < r)
-      ranges.push_back(rank * (n + 1));
-    else
-      ranges.push_back(rank * n + r);
-  }
-
-  return ranges;
-}
 //-----------------------------------------------------------------------------
 spmv::Matrix<double> spmv::read_petsc_binary(MPI_Comm comm,
                                              std::string filename)
 {
-  Eigen::SparseMatrix<double, Eigen::RowMajor> A;
+  // COO data structure
+  std::vector<double> coo_data;
+  std::vector<std::int32_t> coo_row;
+  std::vector<std::int32_t> coo_col;
 
   int mpi_rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
@@ -144,8 +128,6 @@ spmv::Matrix<double> spmv::read_petsc_binary(MPI_Comm comm,
         ++c;
       }
 
-    A.resize(nrows_local, col_indices.size());
-
     // Read values
     std::vector<char> valuedata(nnz_size * 8);
     file.seekg(value_data_pos, std::ios::beg);
@@ -170,15 +152,14 @@ spmv::Matrix<double> spmv::read_petsc_binary(MPI_Comm comm,
         // Look up column local index
         std::int32_t col = col_indices[*((std::int32_t*)ptr)];
         ptr += 4;
-
-        A.insert(row - row_ranges[mpi_rank], col) = val;
+        coo_data.push_back(val);
+        coo_row.push_back(row - row_ranges[mpi_rank]);
+        coo_col.push_back(col);
       }
     }
   }
   else
     throw std::runtime_error("Could not open file");
-
-  A.makeCompressed();
 
   std::vector<std::int64_t> ghosts(col_indices.size() - ncols_local);
   for (auto& q : col_indices)
@@ -188,26 +169,18 @@ spmv::Matrix<double> spmv::read_petsc_binary(MPI_Comm comm,
   auto col_map = std::make_shared<spmv::L2GMap>(comm, ncols_local, ghosts);
   auto row_map = std::make_shared<spmv::L2GMap>(comm, nrows_local);
 
-  // Get indptr buffer
-  std::int32_t* Aouter = A.outerIndexPtr();
-  std::vector<std::int32_t> indptr(A.rows() + 1);
-  std::memcpy(indptr.data(), Aouter, sizeof(std::int32_t) * indptr.size());
+  auto [data, indptr, indices]
+      = coo_to_csr<double>(nrows_local, col_indices.size(), coo_data.size(),
+                           coo_row, coo_col, coo_data);
 
-  // Get indices buffer
-  std::int32_t* Ainner = A.innerIndexPtr();
-  std::vector<std::int32_t> indices(A.nonZeros());
-  std::memcpy(indices.data(), Ainner, sizeof(std::int32_t) * indices.size());
+  for (std::int32_t i = 0; i < 20; i++)
+    std::cout << indptr[i] << " ";
 
-  // Get data buffer
-  double* Aptr = A.valuePtr();
-  std::vector<double> data(A.nonZeros());
-  std::memcpy(data.data(), Aptr, sizeof(double) * data.size());
-
-  return spmv::Matrix<double>(data, indptr, indices, col_map, row_map);
+    return spmv::Matrix<double>(data, indptr, indices, col_map, row_map);
 }
 //-----------------------------------------------------------------------------
 std::vector<double> spmv::read_petsc_binary_vector(MPI_Comm comm,
-                                               std::string filename)
+                                                   std::string filename)
 {
   std::vector<double> vec;
 
@@ -260,8 +233,7 @@ std::vector<double> spmv::read_petsc_binary_vector(MPI_Comm comm,
     // Pointer to values
     char* vptr = valuedata.data();
 
-    for (std::int64_t row = ranges[mpi_rank]; row < ranges[mpi_rank + 1];
-    ++row)
+    for (std::int64_t row = ranges[mpi_rank]; row < ranges[mpi_rank + 1]; ++row)
     {
       std::swap(*vptr, *(vptr + 7));
       std::swap(*(vptr + 1), *(vptr + 6));
