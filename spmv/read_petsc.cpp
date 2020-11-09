@@ -173,10 +173,7 @@ spmv::Matrix<double> spmv::read_petsc_binary(MPI_Comm comm,
       = coo_to_csr<double>(nrows_local, col_indices.size(), coo_data.size(),
                            coo_row, coo_col, coo_data);
 
-  for (std::int32_t i = 0; i < 20; i++)
-    std::cout << indptr[i] << " ";
-
-    return spmv::Matrix<double>(data, indptr, indices, col_map, row_map);
+  return spmv::Matrix<double>(data, indptr, indices, col_map, row_map);
 }
 //-----------------------------------------------------------------------------
 std::vector<double> spmv::read_petsc_binary_vector(MPI_Comm comm,

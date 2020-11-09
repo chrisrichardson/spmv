@@ -1,6 +1,7 @@
 // Copyright (C) 2020 Igor Baratta (ia397@cam.ac.uk)
 // SPDX-License-Identifier:    MIT
 
+#include <algorithm>
 #include <cstdint>
 #include <numeric>
 #include <vector>
@@ -37,6 +38,7 @@ struct csr_data
   std::vector<std::int32_t> indices;
 };
 
+// TODO: Parallel Kernel
 template <class T>
 csr_data<T>
 coo_to_csr(const std::int32_t nrows, const std::int32_t ncols,

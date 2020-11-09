@@ -40,34 +40,41 @@ spmv::Matrix<double> create_A(MPI_Comm comm, int N)
     // Special case for very first and last global rows
     if (c0 == 0)
     {
+      // A.insert(i, c0) = 1.0 - gamma;
       coo_data.push_back(1.0 - gamma);
       coo_row.push_back(i);
       coo_col.push_back(c0);
 
+      // A.insert(i, c0 + 1) = gamma;
       coo_data.push_back(gamma);
       coo_row.push_back(i);
       coo_col.push_back(c0 + 1);
     }
     else if (c0 == (N - 1))
     {
+      // A.insert(i, c0 - 1) = gamma;
       coo_data.push_back(gamma);
       coo_row.push_back(i);
       coo_col.push_back(c0 - 1);
 
+      // A.insert(i, c0) = 1.0 - gamma;
       coo_data.push_back(1.0 - gamma);
       coo_row.push_back(i);
       coo_col.push_back(c0);
     }
     else
     {
-      coo_data.push_back(1.0 - gamma);
+      // A.insert(i, c0 - 1) = gamma;
+      coo_data.push_back(gamma);
       coo_row.push_back(i);
-      coo_col.push_back(c0);
+      coo_col.push_back(c0 - 1);
 
+      // A.insert(i, c0) = 1.0 - 2.0 * gamma;
       coo_data.push_back(1.0 - 2.0 * gamma);
       coo_row.push_back(i);
       coo_col.push_back(c0);
 
+      // A.insert(i, c0 + 1) = gamma;
       coo_data.push_back(gamma);
       coo_row.push_back(i);
       coo_col.push_back(c0 + 1);
@@ -91,9 +98,8 @@ spmv::Matrix<double> create_A(MPI_Comm comm, int N)
 
   // Rebuild A using local indices
   for (auto& col : coo_col)
-  {
     col = col_l2g->global_to_local(col);
-  }
+
   auto [data, indptr, indices] = spmv::coo_to_csr<double>(
       row_l2g->local_size(), col_l2g->local_size() + col_l2g->num_ghosts(),
       coo_data.size(), coo_row, coo_col, coo_data);
